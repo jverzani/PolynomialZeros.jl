@@ -1,3 +1,4 @@
+__precompile__()
 module PolynomialZeros
 
 
@@ -36,7 +37,13 @@ immutable RingType{T} end
 
     - `over.C` (the default) for solving over complex values (`Complex{Float64}`). Use `Over.CC{T}` to specfy a type `T<: AbstractFloat` other than `Float64`
 
-    - `over.R` for solving over the real line (`Float64`). Use `Over.RR{T}` to specify a `T <: Integer` other than `Float64`
+    - `over.R` for solving over the real line (`Float64`). Use
+      `Over.RR{T}` to specify a `T <: Integer` other than
+      `Float64`. The algorithm assume the polynomial is square free
+      (none of its factors are squares over R). This is important for
+      floating point coefficients. Pass the argument
+      `square_free=false` to have an *approximate* gcd used to create
+      a square free version.
 
     - `over.Q` for solving over the rational (`Rational{Int}`). Use `Over.RR{T}` to specify a `T <: Integer` other than `Int`
 
@@ -67,14 +74,18 @@ end
 
 
 
-poly_zeros(f, ::Type{Over.R}) = poly_zeros(f, Over.RR{Float64})
-function poly_zeros{T <: AbstractFloat}(f, ::Type{Over.RR{T}})
+poly_zeros(f, ::Type{Over.R};square_free=true) = poly_zeros(f, Over.RR{Float64}, square_free=square_free)
+function poly_zeros{T <: AbstractFloat}(f, ::Type{Over.RR{T}}; square_free=true)
     p = as_poly(T, f)
-    real_roots(p)
+    if square_free
+        real_roots_sqfree(f)
+    else
+        real_roots(p)
+    end
 end
 
                                                                                       
-poly_zeros(f, ::Type{Over.Q}) = poly_zeros(f, Over.QQ{Int64})
+poly_zeros(f, ::Type{Over.Q}) = poly_zeros(f, Over.QQ{Int})
 function poly_zeros{T <: Integer}(f, ::Type{Over.QQ{T}})
     
     p = as_poly(Rational{T}, f)
@@ -93,10 +104,10 @@ end
 
 
 
-function poly_zeros{q <: Int}(f, ::Type{Over.Zp{q}})
+function poly_zeros{q}(f, ::Type{Over.Zp{q}})
     # error if q is not prime?
     
-    p = as_poly(Int, f)
+    p = as_poly(BigInt, f)
     fs = PolynomialFactors.factormod(p,q)
     ls = filter((r,n) -> degree(r) == 1, fs)
     [mod(-r[0] * invmod(r[1],q), q) for (r,n) in ls]

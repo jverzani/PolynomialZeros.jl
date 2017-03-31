@@ -41,8 +41,13 @@ end
 end 
 
 @testset "Over.Q" begin
-    @test length(poly_zeros(Wilkinson(10), Over.Q)) == 10    
+    @test length(poly_zeros(Wilkinson(5, Int), Over.Q)) == 5    
     @test length(poly_zeros(x -> x^5 - x -1, Over.Q)) == 0
 end
 
 
+@testset "Over.Zp{q}" begin
+    p = x -> x^8 - 1
+    @test length(poly_zeros(p, Over.Zp{7})) == 2
+    @test length(poly_zeros(p, Over.Zp{17})) == 8
+end

@@ -42,8 +42,9 @@ end
 
 
 ## Our Poly types for which we can find gcd
-typealias QQ  @compat Union{Int, BigInt, Rational{Int}, Rational{BigInt}}
-typealias BB  @compat Union{BigInt, Rational{BigInt}}
+
+const QQ = @compat Union{Int,BigInt,Rational{Int},Rational{BigInt}}
+const BB = @compat Union{BigInt,Rational{BigInt}}
 
 ## Here computations are exact, as long as we return poly in Q[x]
 function Base.divrem{T<:QQ, S<:QQ}(a::Poly{T}, b::Poly{S})

@@ -1,3 +1,14 @@
+## This kind stinks, for example it gets wrong the Wilkinson(10) poly. Can we do better?
+## Follow up on these:
+# * [Winkler&Hasan](http://ac.els-cdn.com/S0377042712003135/1-s2.0-S0377042712003135-main.pdf?_tid=126266d0-ea31-11e6-a1a7-00000aab0f6b&acdnat=1486140896_2119601f37cf58ff0d3eefbc05fecbb4)
+# * [LiLiuZhi](http://www.sciencedirect.com/science/article/pii/S0377042707000271?np=y&npKey=f5e3b7a1bc9583214348aad066170ea389212ebba443454938cacfdbf96177f8)
+# * [Winkler](http://ml.dcs.shef.ac.uk/summer_school/ln.pdf)
+# * [Matonardi&...](http://www.sciencedirect.com/science/article/pii/S0024379515005649)
+# * [FarmerPhD](http://www.learninglink.bbk.ac.uk/site/assets/files/1025/farmer.pdf)
+# * [WinklerLaoHasan](http://www.sciencedirect.com/science/article/pii/S0377042712000751)
+# * [Sagraloff&...](https://arxiv.org/pdf/1308.4088v2.pdf)
+# * [](https://arxiv.org/pdf/1207.0630v3.pdf)
+
 ##
 ## Find an approximate gcd (agcd) for two polynomials
 ## The `gcd` function can exactly handle Poly{Int} if Rational{BigInt} is used:
