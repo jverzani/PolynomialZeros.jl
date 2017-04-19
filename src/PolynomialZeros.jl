@@ -3,7 +3,7 @@ module PolynomialZeros
 
 
 using Polynomials
-import PolynomialRoots
+#import PolynomialRoots
 using PolynomialFactors
 using Compat
 
@@ -26,7 +26,6 @@ include("real_roots.jl")
 
 
 
-@compat struct RingType{T} end
 
 
 """
