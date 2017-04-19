@@ -72,3 +72,5 @@ function _bisection_method(f, a, b)
     end
     w
 end
+
+

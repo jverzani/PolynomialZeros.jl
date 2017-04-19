@@ -2,18 +2,18 @@ module Over
 
 # use to specify domain
 
-type CC{T} end
-type C end
+struct CC{T} end
+struct C end
 
-type RR{T} end
-type R end
+struct RR{T} end
+struct R end
 
-type QQ{T} end
-type Q end
+struct QQ{T} end
+struct Q end
 
-type ZZ{T} end
-type Z end
+struct ZZ{T} end
+struct Z end
 
-type Zp{p} end
+struct Zp{p} end
 
 end

@@ -8,12 +8,14 @@ using PolynomialFactors
 using Compat
 
 export poly_zeros
-export agcd, multroot
 export Over 
+
+export agcd, multroot
 
 
 include("utils.jl")
 include("over.jl")
+include("special_cases.jl")
 include("agcd.jl")
 include("multroot.jl")
 include("real_roots.jl")
@@ -24,7 +26,7 @@ include("real_roots.jl")
 
 
 
-immutable RingType{T} end
+@compat struct RingType{T} end
 
 
 """
@@ -58,59 +60,96 @@ Returns an array of zeros, possible empty. May throw error if polynomial type is
 """
 poly_zeros(f) = poly_zeros(f, Over.CC{Float64}) # default
 poly_zeros(f, ::Type{Over.C}) = poly_zeros(f, Over.CC{Float64})
-function poly_zeros{T<:Float64}(f, ::Type{Over.CC{T}})
+function poly_zeros{T<:Float64}(f, U::Type{Over.CC{T}})
     
     p = as_poly(Complex{T}, f)
-    PolynomialRoots.roots(p.a, polish=true)
+    
+    fn = special_case(p.a, U)
+    if fn == identity
+        PolynomialRoots.roots(p.a, polish=true)
+    else
+        fn(p.a, U)
+    end
 
 end
 
-function poly_zeros{T<:BigFloat}(f, ::Type{Over.CC{T}})
+function poly_zeros{T<:BigFloat}(f, U::Type{Over.CC{T}})
     
     p = as_poly(Complex{T}, f)
-    PolynomialRoots.roots(p.a)
-
+    fn = special_case(p.a, U)
+    if fn == identity
+        PolynomialRoots.roots(p.a)
+    else
+        fn(p.a, U)
+    end
 end
 
 
 
 poly_zeros(f, ::Type{Over.R};square_free=true) = poly_zeros(f, Over.RR{Float64}, square_free=square_free)
-function poly_zeros{T <: AbstractFloat}(f, ::Type{Over.RR{T}}; square_free=true)
+function poly_zeros{T <: AbstractFloat}(f, U::Type{Over.RR{T}}; square_free=true)
     p = as_poly(T, f)
-    if square_free
-        real_roots_sqfree(f)
+    fn = special_case(p.a, U)
+    if fn == identity
+        if square_free
+            real_roots_sqfree(p)
+        else
+            real_roots(p)
+        end
     else
-        real_roots(p)
+        fn(p.a, U)
     end
+    
 end
 
                                                                                       
 poly_zeros(f, ::Type{Over.Q}) = poly_zeros(f, Over.QQ{Int})
-function poly_zeros{T <: Integer}(f, ::Type{Over.QQ{T}})
+function poly_zeros{T <: Integer}(f, U::Type{Over.QQ{T}})
     
     p = as_poly(Rational{T}, f)
-    PolynomialFactors.rational_roots(p)
+    fn = special_case(p.a, U)
+    if fn == identity
+        d = PolynomialFactors.factor(p)
+        d = filter((k,v) -> degree(k) == 1, d)
+        vcat([ones(Rational{T},v)*(-p[0]//p[1]) for (p,v) in d]...)
+    else
+        fn(p.a, U)
+    end
     
 end
 
 
 poly_zeros(f, ::Type{Over.Z}) = poly_zeros(f, Over.ZZ{Int64})
-function poly_zeros{T <: Integer}(f, ::Type{Over.ZZ{T}})
+function poly_zeros{T <: Integer}(f, U::Type{Over.ZZ{T}})
 
     p = as_poly(T, f)
-    rts = PolynomialFactors.rational_roots(p)
-    T[convert(T, r) for r in  filter(u->u.den==one(T), rts)]
+
+    fn = special_case(p.a, U)
+    if fn == identity
+        d = PolynomialFactors.factor(p)
+        d = filter((k,v) -> degree(k) == 1, d)
+        d = filter((k,v) -> rem(k[0], k[1]) == 0, d)
+        vcat([ones(Rational{T},v)*(-div(p[0], p[1])) for (p,v) in d]...)
+    else
+        fn(p.a, U)
+    end
 end
 
 
 
-function poly_zeros{q}(f, ::Type{Over.Zp{q}})
+function poly_zeros{q}(f, U::Type{Over.Zp{q}})
     # error if q is not prime?
     
     p = as_poly(BigInt, f)
-    fs = PolynomialFactors.factormod(p,q)
-    ls = filter((r,n) -> degree(r) == 1, fs)
-    [mod(-r[0] * invmod(r[1],q), q) for (r,n) in ls]
+
+    fn = special_case(p.a, U)
+    if fn == identity
+        fs = PolynomialFactors.factormod(p,q)
+        ls = filter((r,n) -> degree(r) == 1, fs)
+        [mod(-r[0] * invmod(r[1],q), q) for (r,n) in ls]
+    else
+        fn(p.a, U)
+    end
     
 end
 

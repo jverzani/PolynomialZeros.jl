@@ -51,3 +51,20 @@ end
     @test length(poly_zeros(p, Over.Zp{7})) == 2
     @test length(poly_zeros(p, Over.Zp{17})) == 8
 end
+
+
+@testset "special cases" begin
+    x = variable()
+    p = (x-1)*(x^2 + 1)
+    rts_c = poly_zeros(p, Over.C)
+    rts_r = poly_zeros(p, Over.R)
+    @test length(rts_c) == 3
+    @test length(rts_r) == 1    
+
+    x = variable(Int)
+    p = (x-1)*(2x-3)
+    rts_q = poly_zeros(p, Over.Q)
+    rts_z = poly_zeros(p, Over.Z)
+    @test length(rts_q) == 2
+    @test length(rts_z) == 1
+end
