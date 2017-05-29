@@ -1,18 +1,22 @@
 #
+
 """
-Try to convert a callable object into a polynomial, `Poly{T}`. `T` can be specified, or guessed from calling `f(0)`.
+    `as_poly(f)` convert something into a polynomial
+
+Here `f` can be a `Polynomial` object; a vector of coefficents in the
+form `[a_0, a_1, ..., a_n]`; or a callable object, such as a function,
+that implements a polynomial function. The latter is determined by whether
+it can be evaluated on the `Polynomial` monomial `x`.
 """
 as_poly(f::Poly) = f
-    
+as_poly(T, f::Poly) = convert(Poly{T}, f)
+as_poly{T}(xs::Vector{T}) = poly(xs)
+
+## Try to convert a callable object into a polynomial, `Poly{T}`. `T` can be specified, or guessed from calling `f(0)`.
 function as_poly(f)
     T = typeof(f(0))
     as_poly(T, f)
 end
-
-function as_poly(T, f::Poly)
-    convert(Poly{T}, f)
-end
-
 
 """
 as_poly{T}(T, f)

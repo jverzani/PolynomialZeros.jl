@@ -3,7 +3,7 @@ module PolynomialZeros
 
 
 using Polynomials
-#import PolynomialRoots
+import PolynomialRoots
 using PolynomialFactors
 using Compat
 
@@ -100,7 +100,8 @@ function poly_zeros{T <: AbstractFloat}(f, U::Type{Over.RR{T}}; square_free=true
     end
     
 end
-
+# should I do an alias?
+#const fzero(f;kwargs...) = poly_zeros(f, Over.R;kwargs...)
                                                                                       
 poly_zeros(f, ::Type{Over.Q}) = poly_zeros(f, Over.QQ{Int})
 function poly_zeros{T <: Integer}(f, U::Type{Over.QQ{T}})

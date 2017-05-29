@@ -313,12 +313,12 @@ end
 function real_roots{T <: Union{Int, BigInt}}(p::Poly{T})
     f = PolynomialFactors.square_free(p)
     rts = Real[]
-    rat_rts = rational_roots(p)
-    append!(rts, rat_rts)
+#    rat_rts = rational_roots(p)
+#    append!(rts, rat_rts)
     
-    for rt in rat_rts
-        f, k = PolynomialFactors.synthetic_division(f, rt)
-    end
+#    for rt in rat_rts
+#        f, k = PolynomialFactors.synthetic_division(f, rt)
+#    end
     
     if degree(f) > 0
         real_rts = real_roots_sqfree(f)

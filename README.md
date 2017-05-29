@@ -23,7 +23,7 @@ Where `f` is in `Poly{T}` (from the `Polynomials.jl` package) or can be converte
 Examples:
 
 ```
-julia> poly_zeros(x ->x^4 - 1, Over.C)  # uses `roots` from `Polynomials.jl`
+julia> poly_zeros(x ->x^4 - 1, Over.C)  # uses `roots` from `PolynomialRoots.jl`
 4-element Array{Complex{Float64},1}:
  -1.0+4.44089e-16im 
    5.55112e-17+1.0im
@@ -63,7 +63,12 @@ The `Polynomials` package provides a `roots` command to find the roots of a poly
 * it can have numeric issues when there are multiplicities
 * it may return complex values near an actual real root, rather than real values
 
-This package uses the `PolynomialZeros` package to find roots over the complex numbers; it uses `PolynomialFactors` to return roots over the rationals and integers; and it provides an algorithm to find all real roots and an algorithm to find roots when there are expected multiplicities. In addition, it plans to provide a fast alogrithm for high-degree polynomials.
+This package uses the `PolynomialRoots` package to find roots over the
+complex numbers; it uses `PolynomialFactors` to return roots over the
+rationals and integers; and it provides an algorithm to find all real
+roots and an algorithm to find roots when there are expected
+multiplicities. In addition, it plans to provide a fast alogrithm for
+high-degree polynomials.
 
 
 ## Other possible useful methods
