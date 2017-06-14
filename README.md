@@ -60,35 +60,48 @@ julia> polyroots(x -> x^4 - 1, Over.Zp{5}) # uses `PolynomialFactors.jl`
  2
 ```
 
+Domains can also have their types specified. For example, to solve
+over the `BigFloat` type, we have:
 
-## Motivation
+```julia
+polyroots(x -> x^4 - 1, Over.CC{BigFloat})  # `CC{BigFloat}` not just `C`
+```
 
-The `Polynomials` package provides a `roots` command to find the roots of a polynomial by finding the eigenvalues of the companion matrix, but it has a few limitations:
+## Details
 
-* for technical reasons, it doesn't work with "big" values
-* it may be slow for very high-degree polynomials; it may be
-  inaccurate for high-degree polynomials
-* it can have numeric issues when there are multiplicities
-* it may return complex values near an actual real root, rather than real values
 
-This package uses
+This package uses:
 
-* the `PolynomialRoots` package to find roots over the
-complex numbers. 
+* The `PolynomialRoots` package to find roots over the
+complex numbers. The `Roots` package can also be used.
 
-* it uses `PolynomialFactors` to return roots over the
-rationals and integers;
+* The `PolynomialFactors` package to return roots over the
+rationals, integers, and integers module a prime.
 
-* it provides an algorithm to find the real
+* As well, it provides an algorithm to find the real
 roots of polynomials that originally was in the `Roots` package.
 
 
-## Other possible useful methods
+The main motivation for this package was to move the polynomial
+specific code out of the `Roots` package. This makes the `Roots`
+package have fewer dependencies and a more focused task. In addition,
+the polynomial specific code could use some better implementations of
+the underlying algorithms.
+
+In the process of doing this, making a common interface to the other
+root-finding packages seemed to make sense.
+
+### Other possible useful methods
 
 The package also provides
 
 * `PolynomialZeros.agcd` for computing an *approximate* GCD of
-  polynomials `p` and `q` over `Poly{Float64}`.
+  polynomials `p` and `q` over `Poly{Float64}`. (This is used to
+  reduce a polynomial over the real to a square-free
+  polynomial. Square-free polynomials are needed for the `realroots`
+  algorithm. However, the `agcd` function begins to be inaccurate for
+  higher degree polynomials, so this is not the default behaviour of
+  `realroots`, rather it must be requested.)
 
 * `PolynomialZeros.multroot` for finding roots of `p` in
   `Poly{Float64}` over `Complex{Float64}` which has some advantage if
