@@ -1,117 +1,160 @@
 __precompile__()
 module PolynomialZeros
 
-
 using Polynomials
 import PolynomialRoots
 using PolynomialFactors
+#using AMVW
 using Compat
 
-export poly_zeros
+
+export polyroots, realroots
 export Over 
 
-export agcd, multroot
+# export agcd, multroot # qualify these
+
+
+
 
 
 include("utils.jl")
 include("over.jl")
 include("special_cases.jl")
-include("agcd.jl")
-include("multroot.jl")
-include("real_roots.jl")
-#include("amvw.jl")
+
+include("agcd/agcd.jl")        # AGCD.agcd
+include("agcd/multroot.jl")    # MultRoot.multroot
+
+include("RealRoots/real_roots.jl")  # RealRoots.real_roots(p::Poly)
 
 
+using .AGCD
+using .MultRoot
 
 
-
+# Separate pakage?
+#import AMVW
+#include("AMVW/AMVW.jl")        # AMVW.amvw or AMVW.amvw_pencil
+#using .AMVW
 
 
 
 """
 
-`poly_zeros(f, domain)`: Find zeros of the polynomial `f` within the specified domain
+`polyroots(f, domain)`: Find zeros of the polynomial `f` within the specified domain.
 
 * `f` can be an instance of `Poly` type (from `Polynomials.jl`) or a callable object which can be so converted. Will throw a `DomainError` if the object `f` can not be converted to `Poly{T}`.        
 
 * `domain` is one of
 
-    - `over.C` (the default) for solving over complex values (`Complex{Float64}`). Use `Over.CC{T}` to specfy a type `T<: AbstractFloat` other than `Float64`
+    - `over.C` (the default) for solving over complex values
+      (`Complex{Float64}`). Use `Over.CC{T}` to specfy a type `T<:
+      AbstractFloat` other than `Float64`. The default method is from
+      `PolynomialRoots`. Pass the argument `method=:Roots` to use the
+      `roots` function from `Polynomials.jl`. For a degree n
+      polynomial over C, all n roots should be returned (including
+      multiplicities).
 
     - `over.R` for solving over the real line (`Float64`). Use
       `Over.RR{T}` to specify a `T <: Integer` other than
-      `Float64`. The algorithm assume the polynomial is square free
+      `Float64`. The algorithm assumes the polynomial is square free
       (none of its factors are squares over R). This is important for
       floating point coefficients. Pass the argument
       `square_free=false` to have an *approximate* gcd used to create
-      a square free version.
+      a square-free version. Only unique real roots are returned (no
+      multiplicities).
 
-    - `over.Q` for solving over the rational (`Rational{Int}`). Use `Over.RR{T}` to specify a `T <: Integer` other than `Int`
+    - `over.Q` for solving over the rational numbers
+      (`Rational{Int}`). Use `Over.RR{T}` to specify a `T <: Integer`
+      other than `Int`. Only unique rational roots are returned (no
+      multiplicities).
 
-    - `over.Z` for solving over the integers (`Int`). Use `Over.ZZ{T}` to specify a `T` other than `Int`
+    - `over.Z` for solving over the integers (`Int`). Use `Over.ZZ{T}`
+      to specify a `T` other than `Int`. Only unique integer roots are
+      returned (no multiplicities).
 
-    - `over.Zp{p}` for solving over the finite field `ZZ_p`, p a prime
+    - `over.Zp{p}` for solving over the finite field `ZZ_p`, p a
+      prime.  Only unique roots are returned (no multiplicities).
 
-Returns an array of zeros, possible empty. May throw error if polynomial type is appropriate for specified domain.
+Returns an array of zeros, possibly empty. May throw error if polynomial type is inappropriate for specified domain.
 
+Examples:
 
+```julia
+using Polynomials, PolynomialZeros
+x = variable(); p = x^5 - x - 1
+polyroots(p, Over.C)  # 5
+polyroots(p, Over.R)  # 1
+polyroots(p, Over.Q)  # empty
+
+p = x^3 - 1
+polyroots(p, Over.C)  # 3
+polyroots(p, Over.R)  # 1
+polyroots(p, Over.Q)  # 1
+polyroots(p, Over.Z)  # 1
+polyroots(p, Over.Zp{7})  # 3
+```
     
 """
-poly_zeros(f) = poly_zeros(f, Over.CC{Float64}) # default
-poly_zeros(f, ::Type{Over.C}) = poly_zeros(f, Over.CC{Float64})
-function poly_zeros{T<:Float64}(f, U::Type{Over.CC{T}})
-    
-    p = as_poly(Complex{T}, f)
-    
-    fn = special_case(p.a, U)
-    if fn == identity
-        PolynomialRoots.roots(p.a, polish=true)
-    else
-        fn(p.a, U)
-    end
-
+function polyroots(f; method=:PolynomialRoots)
+    T = eltype(float(zero(e_type(f))))
+    polyroots(f, Over.CC{T}; method=method) # default
 end
+polyroots(f, ::Type{Over.C}; method=:PolynomialRoots) = polyroots(f, Over.CC{Float64}; method=method)
+function polyroots{T<:AbstractFloat}(f, U::Type{Over.CC{T}}; method=:PolynomialRoots)
 
-function poly_zeros{T<:BigFloat}(f, U::Type{Over.CC{T}})
+
+    ps = poly_coeffs(T, f)
+    fn = special_case(ps, U)
     
-    p = as_poly(Complex{T}, f)
-    fn = special_case(p.a, U)
     if fn == identity
-        PolynomialRoots.roots(p.a)
-    else
-        fn(p.a, U)
-    end
-end
-
-
-
-poly_zeros(f, ::Type{Over.R};square_free=true) = poly_zeros(f, Over.RR{Float64}, square_free=square_free)
-function poly_zeros{T <: AbstractFloat}(f, U::Type{Over.RR{T}}; square_free=true)
-    p = as_poly(T, f)
-    fn = special_case(p.a, U)
-    if fn == identity
-        if square_free
-            real_roots_sqfree(p)
+        if method == :PolynomialRoots
+            PolynomialRoots.roots(ps, polish=true)
+#        elseif method == :AMVW
+#            AMVW.poly_roots(ps)
+#        elseif method ==:AMVW_Pencil
+#            AMVW.poly_roots(ps)
         else
-            real_roots(p)
+            convert(Vector{Complex{Float64}}, roots(Poly(ps)))
         end
     else
-        fn(p.a, U)
+        fn(ps, U)
+    end
+
+end
+
+
+
+function polyroots(f, ::Type{Over.R};square_free=true)
+    T = eltype(float(zero(e_type(f))))
+    polyroots(f, Over.RR{T}, square_free=square_free)
+end
+function polyroots{T <: Real}(f, U::Type{Over.RR{T}}; square_free::Bool=true)
+
+    ps = convert(Vector{T},poly_coeffs(f))
+    fn = special_case(ps, U)
+    
+    if fn == identity
+        RealRoots.real_roots(as_poly(T, f), square_free=square_free)
+    else
+        fn(ps, U)
     end
     
 end
 # should I do an alias?
-#const fzero(f;kwargs...) = poly_zeros(f, Over.R;kwargs...)
+realroots(f; kwargs...) = polyroots(f, Over.R; kwargs...)
                                                                                       
-poly_zeros(f, ::Type{Over.Q}) = poly_zeros(f, Over.QQ{Int})
-function poly_zeros{T <: Integer}(f, U::Type{Over.QQ{T}})
+function polyroots(f, ::Type{Over.Q})
+    T = e_type(f)
+    polyroots(f, Over.QQ{T})
+end
+function polyroots{T <: Integer}(f, U::Type{Over.QQ{T}})
     
     p = as_poly(Rational{T}, f)
-    fn = special_case(p.a, U)
+    fn = special_case(poly_coeffs(p), U)
     if fn == identity
         d = PolynomialFactors.factor(p)
         d = filter((k,v) -> degree(k) == 1, d)
-        vcat([ones(Rational{T},v)*(-p[0]//p[1]) for (p,v) in d]...)
+        vcat([-p[0]//p[1] for p in keys(d)]...)
     else
         fn(p.a, U)
     end
@@ -119,17 +162,21 @@ function poly_zeros{T <: Integer}(f, U::Type{Over.QQ{T}})
 end
 
 
-poly_zeros(f, ::Type{Over.Z}) = poly_zeros(f, Over.ZZ{Int64})
-function poly_zeros{T <: Integer}(f, U::Type{Over.ZZ{T}})
+function polyroots(f, ::Type{Over.Z})
+    T = eltype(as_poly(f)(0))
+    polyroots(f, Over.ZZ{T})
+end
+
+function polyroots{T <: Integer}(f, U::Type{Over.ZZ{T}})
 
     p = as_poly(T, f)
 
-    fn = special_case(p.a, U)
+    fn = special_case(poly_coeffs(p), U)
     if fn == identity
         d = PolynomialFactors.factor(p)
         d = filter((k,v) -> degree(k) == 1, d)
         d = filter((k,v) -> rem(k[0], k[1]) == 0, d)
-        vcat([ones(Rational{T},v)*(-div(p[0], p[1])) for (p,v) in d]...)
+        vcat([-div(p[0], p[1]) for (p,v) in d]...)
     else
         fn(p.a, U)
     end
@@ -137,12 +184,12 @@ end
 
 
 
-function poly_zeros{q}(f, U::Type{Over.Zp{q}})
+function polyroots{q}(f, U::Type{Over.Zp{q}})
     # error if q is not prime?
     
-    p = as_poly(BigInt, f)
+    p = as_poly(e_type(f), f)
 
-    fn = special_case(p.a, U)
+    fn = special_case(poly_coeffs(p), U)
     if fn == identity
         fs = PolynomialFactors.factormod(p,q)
         ls = filter((r,n) -> degree(r) == 1, fs)

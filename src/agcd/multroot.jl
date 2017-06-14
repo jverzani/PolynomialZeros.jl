@@ -1,3 +1,7 @@
+module MultRoot
+
+## The main function here is `MultRoot.multroot`
+
 ## Polynomial root finder for polynomials with multiple roots
 ##
 ## Based on "Computing multiple roots of inexact polynomials"
@@ -62,7 +66,7 @@ end
 ## l is known multiplicity structure of polynomial p = (x-z1)^l1 * (x-z2)^l2 * ... * (x-zn)^ln
 ## Algorithm I, p17
 function pejroot(p::Poly, z0::Vector, l::Vector{Int};
-                 wts::(@compat Union{Vector, Void})=nothing, # weight vector
+                 wts::Union{Vector, Void}=nothing, # weight vector
                  tol = 1e-8,
                  maxsteps = 100
                       )
@@ -70,7 +74,7 @@ function pejroot(p::Poly, z0::Vector, l::Vector{Int};
     a = p2a(p) #rcoeffs(monic(p))[2:end] # an_1, an_2, ..., a2, a1, a0
 
     if wts == nothing
-        @compat wts = map(u -> min(1, 1/abs.(u)), a)
+        wts = map(u -> min(1, 1/abs.(u)), a)
     end
     W = diagm(wts)
 
@@ -177,7 +181,7 @@ function multroot(p::Poly;
     while degree(p0) > 0
         if degree(p0) == 1
             z = roots(p0)[1]
-            @compat _, ind = findmin(abs.(zs .- z))
+            tmp, ind = findmin(abs.(zs .- z))
             ls[ind] = ls[ind] + 1
             break
         end
@@ -192,7 +196,7 @@ function multroot(p::Poly;
 
         ## update multiplicities
         for z in roots(v_j)
-            @compat _, ind = findmin(abs.(zs .- z))
+            tmp, ind = findmin(abs.(zs .- z))
             ls[ind] = ls[ind] + 1
         end
 
@@ -229,6 +233,5 @@ function multroot(f::Function; kwargs...)
     
 end
 
-## add funciton interface to Polynomials.roots
-Polynomials.roots(f::Function) = roots(convert(Poly{Float64}, f))
 
+end

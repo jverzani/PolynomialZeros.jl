@@ -10,8 +10,8 @@ function special_case{S}(ps::Vector{S}, T)
         method_exists(solve_quadratic, (Vector{S}, Type{T})) && return solve_quadratic
     elseif n == 4
         method_exists(solve_cubic, (Vector{S}, Type{T}))     && return solve_cubic
-    elseif n == 6
-        method_exists(solve_quintic, (Vector{S}, Type{T}))   && return solve_quintic
+#    elseif n == 6
+#        method_exists(solve_quintic, (Vector{S}, Type{T}))   && return solve_quintic
     end
 
     return identity
@@ -127,7 +127,7 @@ function solve_cubic{T <: Real, S}(ps::Vector{Complex{T}}, U::Type{Over.CC{S}})
     check_cubic(ps)
     iszero(ps[1]) && return solve_quadratic(ps[2:end], U)
 
-    PolynomialRoots.solve_cubic_eq(ps)
+    [PolynomialRoots.solve_cubic_eq(ps)...]
 end
 
 # R -> C XXX Can be faster
@@ -135,7 +135,7 @@ function solve_cubic{T <: Real, S}(ps::Vector{T}, U::Type{Over.CC{S}})
     check_cubic(ps)
     iszero(ps[1]) && return solve_quadratic(ps[2:end], U)
 
-    PolynomialRoots.solve_cubic_eq(complex.(ps, zeros(T,4)))
+    [PolynomialRoots.solve_cubic_eq(complex.(ps, zeros(T,4)))...]
 end
 
 

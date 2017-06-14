@@ -2,4 +2,4 @@ julia 0.5
 Polynomials 0.1.2
 PolynomialRoots 0.0.4
 PolynomialFactors
-Compat
+Compat v0.17.0

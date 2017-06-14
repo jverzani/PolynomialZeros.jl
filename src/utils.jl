@@ -32,7 +32,23 @@ function as_poly(T, f)
     end
     p
 end
-    
+
+
+"""
+
+Find coefficients of polynomial expressed as Poly, Callable object, or values [a0,a1, ..., an]
+
+"""
+poly_coeffs{T}(ps::Vector{T}) = ps
+poly_coeffs{T}(p::Poly{T}) = coeffs(p)
+poly_coeffs(f) = poly_coeffs(as_poly(f))
+poly_coeffs(T, f) = convert(Vector{T}, poly_coeffs(f))
+
+" Type of polynomial "
+e_type{T}(p::Poly{T}) = T
+e_type{T}(ps::Vector{T}) = T
+e_type(p) =  eltype(p(0))
+
 
 """
 reverse coefficients of a polynomial

@@ -1,4 +1,15 @@
-## This kind stinks, for example it gets wrong the Wilkinson(10) poly. Can we do better?
+module AGCD
+
+using Polynomials
+monic(p::Poly) = p / p[0]
+rcoeffs(p::Poly) = reverse(coeffs(p))
+
+
+## This provide AGCD.agcd for finding an *approximate* GCD of two polynomials. The most common use in this package
+## is to reduce a polynomial `p` to a square free polynomial `q=p/gcd(p, p')`.
+
+
+## This kind of stinks, for example it gets wrong the Wilkinson(10) poly. Can we do better?
 ## Follow up on these:
 # * [Winkler&Hasan](http://ac.els-cdn.com/S0377042712003135/1-s2.0-S0377042712003135-main.pdf?_tid=126266d0-ea31-11e6-a1a7-00000aab0f6b&acdnat=1486140896_2119601f37cf58ff0d3eefbc05fecbb4)
 # * [LiLiuZhi](http://www.sciencedirect.com/science/article/pii/S0377042707000271?np=y&npKey=f5e3b7a1bc9583214348aad066170ea389212ebba443454938cacfdbf96177f8)
@@ -58,15 +69,15 @@ end
 function geometric_mean(a::Vector, epsilon=Base.eps())
     a = filter(x -> abs(x) > epsilon, a)
     n = length(a)
-    @compat prod(abs.(a) .^ (1/n))
+    prod(abs.(a) .^ (1/n))
 end
 
 function ratio(p,q, atol=Base.eps(), rtol=Base.eps())
     is_nonzero(x) = !isapprox(x, 0; rtol=rtol, atol=atol)
-    @compat as = abs.(filter(is_nonzero, p.a))
+    as = abs.(filter(is_nonzero, p.a))
     length(as) == 0 && return Inf
 
-    @compat bs = abs.(filter(is_nonzero, q.a))
+    bs = abs.(filter(is_nonzero, q.a))
     length(bs) == 0 && return Inf
 
     max(maximum(as), maximum(bs)) / min(minimum(as), minimum(bs))
@@ -111,7 +122,7 @@ function lemma24(A::Matrix; θ::Float64=1e-8)
     Q,R = Base.qr(A)
     if rank(R) < size(R)[2]
         λs, vs = eig(R)
-        @compat _, ind = findmin(abs.(λs))
+        tmp, ind = findmin(abs.(λs))
         return(λs[ind], vs[:,ind])
     end
 
@@ -290,3 +301,4 @@ end
 
     
 
+end
