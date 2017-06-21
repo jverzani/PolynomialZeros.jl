@@ -8,7 +8,7 @@ using PolynomialFactors
 using Compat
 
 
-export polyroots, realroots
+export poly_roots
 export Over 
 
 # export agcd, multroot # qualify these
@@ -40,7 +40,7 @@ using .MultRoot
 
 """
 
-`polyroots(f, domain)`: Find zeros of the polynomial `f` within the specified domain.
+`poly_roots(f, domain)`: Find zeros of the polynomial `f` within the specified domain.
 
 * `f` can be an instance of `Poly` type (from `Polynomials.jl`) or a callable object which can be so converted. Will throw a `DomainError` if the object `f` can not be converted to `Poly{T}`.        
 
@@ -82,25 +82,25 @@ Examples:
 ```julia
 using Polynomials, PolynomialZeros
 x = variable(); p = x^5 - x - 1
-polyroots(p, Over.C)  # 5
-polyroots(p, Over.R)  # 1
-polyroots(p, Over.Q)  # empty
+poly_roots(p, Over.C)  # 5
+poly_roots(p, Over.R)  # 1
+poly_roots(p, Over.Q)  # empty
 
 p = x^3 - 1
-polyroots(p, Over.C)  # 3
-polyroots(p, Over.R)  # 1
-polyroots(p, Over.Q)  # 1
-polyroots(p, Over.Z)  # 1
-polyroots(p, Over.Zp{7})  # 3
+poly_roots(p, Over.C)  # 3
+poly_roots(p, Over.R)  # 1
+poly_roots(p, Over.Q)  # 1
+poly_roots(p, Over.Z)  # 1
+poly_roots(p, Over.Zp{7})  # 3
 ```
     
 """
-function polyroots(f; method=:PolynomialRoots)
+function poly_roots(f; method=:PolynomialRoots)
     T = eltype(float(zero(e_type(f))))
-    polyroots(f, Over.CC{T}; method=method) # default
+    poly_roots(f, Over.CC{T}; method=method) # default
 end
-polyroots(f, ::Type{Over.C}; method=:PolynomialRoots) = polyroots(f, Over.CC{Float64}; method=method)
-function polyroots{T<:AbstractFloat}(f, U::Type{Over.CC{T}}; method=:PolynomialRoots)
+poly_roots(f, ::Type{Over.C}; method=:PolynomialRoots) = poly_roots(f, Over.CC{Float64}; method=method)
+function poly_roots{T<:AbstractFloat}(f, U::Type{Over.CC{T}}; method=:PolynomialRoots)
 
 
     ps = poly_coeffs(T, f)
@@ -124,11 +124,11 @@ end
 
 
 
-function polyroots(f, ::Type{Over.R};square_free=true)
+function poly_roots(f, ::Type{Over.R};square_free=true)
     T = eltype(float(zero(e_type(f))))
-    polyroots(f, Over.RR{T}, square_free=square_free)
+    poly_roots(f, Over.RR{T}, square_free=square_free)
 end
-function polyroots{T <: Real}(f, U::Type{Over.RR{T}}; square_free::Bool=true)
+function poly_roots{T <: Real}(f, U::Type{Over.RR{T}}; square_free::Bool=true)
 
     ps = convert(Vector{T},poly_coeffs(f))
     fn = special_case(ps, U)
@@ -140,14 +140,14 @@ function polyroots{T <: Real}(f, U::Type{Over.RR{T}}; square_free::Bool=true)
     end
     
 end
-# should I do an alias?
-realroots(f; kwargs...) = polyroots(f, Over.R; kwargs...)
+# should I do an alias? Best to add if requestd, keeping name space light for now
+## realroots(f; kwargs...) = poly_roots(f, Over.R; kwargs...) #real_roots?
                                                                                       
-function polyroots(f, ::Type{Over.Q})
+function poly_roots(f, ::Type{Over.Q})
     T = e_type(f)
-    polyroots(f, Over.QQ{T})
+    poly_roots(f, Over.QQ{T})
 end
-function polyroots{T <: Integer}(f, U::Type{Over.QQ{T}})
+function poly_roots{T <: Integer}(f, U::Type{Over.QQ{T}})
     
     p = as_poly(Rational{T}, f)
     fn = special_case(poly_coeffs(p), U)
@@ -162,12 +162,12 @@ function polyroots{T <: Integer}(f, U::Type{Over.QQ{T}})
 end
 
 
-function polyroots(f, ::Type{Over.Z})
+function poly_roots(f, ::Type{Over.Z})
     T = eltype(as_poly(f)(0))
-    polyroots(f, Over.ZZ{T})
+    poly_roots(f, Over.ZZ{T})
 end
 
-function polyroots{T <: Integer}(f, U::Type{Over.ZZ{T}})
+function poly_roots{T <: Integer}(f, U::Type{Over.ZZ{T}})
 
     p = as_poly(T, f)
 
@@ -184,7 +184,7 @@ end
 
 
 
-function polyroots{q}(f, U::Type{Over.Zp{q}})
+function poly_roots{q}(f, U::Type{Over.Zp{q}})
     # error if q is not prime?
     
     p = as_poly(e_type(f), f)

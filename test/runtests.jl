@@ -38,12 +38,12 @@ end
 
 
 @testset "Over.C" begin
-    @test length(polyroots(Wilkinson(10), Over.C)) == 10
-    @test length(polyroots(x -> x^5 - x -1, Over.C)) == 5
-    @test maximum(norm.(polyroots(Chebyshev(5), Over.C))) <= 1
+    @test length(poly_roots(Wilkinson(10), Over.C)) == 10
+    @test length(poly_roots(x -> x^5 - x -1, Over.C)) == 5
+    @test maximum(norm.(poly_roots(Chebyshev(5), Over.C))) <= 1
 
     p = Cyclotomic(20)
-    rts = polyroots(p, Over.C)
+    rts = poly_roots(p, Over.C)
     @test maximum(norm.(p.(rts) ./ polyder(p).(rts))) <= 1e-14
 
     
@@ -51,68 +51,68 @@ end
     rts = 1.0:6; p = poly(rts)
     fn = x -> x^5 - x - 1
     for m in [:PolynomialRoots, :Roots, :AMVW]
-        @test maximum(norm.(sort(polyroots(p, Over.C, method=m), by=norm) .- rts)) <= 1e-10
-        polyroots(fn, Over.C, method=m)
+        @test maximum(norm.(sort(poly_roots(p, Over.C, method=m), by=norm) .- rts)) <= 1e-10
+        poly_roots(fn, Over.C, method=m)
     end
 
     # test deflation
     fn = x -> x^3 * (x-1) * (x^2 + 1)
-    @test sum(iszero.(polyroots(fn, Over.C))) == 3
+    @test sum(iszero.(poly_roots(fn, Over.C))) == 3
     
 end
 
 @testset "Over.R" begin
-    @test length(polyroots(Wilkinson(10), Over.R)) == 10
-    @test length(polyroots(x -> x^5 - x -1, Over.R)) == 1
-    @test norm(polyroots(x -> x^5 - x -1, Over.R)[1] - 1.1673039782614187) <= 1e-14
-    @test maximum(norm.(polyroots(Chebyshev(5), Over.R))) <= 1
+    @test length(poly_roots(Wilkinson(10), Over.R)) == 10
+    @test length(poly_roots(x -> x^5 - x -1, Over.R)) == 1
+    @test norm(poly_roots(x -> x^5 - x -1, Over.R)[1] - 1.1673039782614187) <= 1e-14
+    @test maximum(norm.(poly_roots(Chebyshev(5), Over.R))) <= 1
 
     p = Legendre(11)
-    rts = polyroots(p, Over.R)
+    rts = poly_roots(p, Over.R)
     @test maximum(p.(rts) ./ polyder(p).(rts)) <= 1e-14
 
 
     p = poly([1.0, 2, 3, 3])
-    polyroots(p, Over.R, square_free=false)
+    poly_roots(p, Over.R, square_free=false)
 
     # test deflation
     fn = x -> x^3 * (x-1) * (x^2 + 1)
-    ds = sort(polyroots(fn, Over.R)) .- sort([1,0])
+    ds = sort(poly_roots(fn, Over.R)) .- sort([1,0])
     @test norm(ds) <= 1e-14
 
     
 end 
 
 @testset "Over.Q" begin
-    @test length(polyroots(Wilkinson(5, Int), Over.Q)) == 5    
-    @test length(polyroots(x -> x^5 - x -1, Over.Q)) == 0
+    @test length(poly_roots(Wilkinson(5, Int), Over.Q)) == 5    
+    @test length(poly_roots(x -> x^5 - x -1, Over.Q)) == 0
 
     # test deflation
     fn = x -> x^3 * (x-1) * (x^2 + 1)
-    ds = sort(polyroots(fn, Over.R)) .- sort([1,0])
+    ds = sort(poly_roots(fn, Over.R)) .- sort([1,0])
     @test norm(ds) <= 1e-14
 end
 
 
 @testset "Over.Zp{q}" begin
     p = x -> x^8 - 1
-    @test length(polyroots(p, Over.Zp{7})) == 2
-    @test length(polyroots(p, Over.Zp{17})) == 8
+    @test length(poly_roots(p, Over.Zp{7})) == 2
+    @test length(poly_roots(p, Over.Zp{17})) == 8
 end
 
 
 @testset "special cases" begin
     x = variable()
     p = (x-1)*(x^2 + 1)
-    rts_c = polyroots(p, Over.C)
-    rts_r = polyroots(p, Over.R)
+    rts_c = poly_roots(p, Over.C)
+    rts_r = poly_roots(p, Over.R)
     @test length(rts_c) == 3
     @test length(rts_r) == 1    
 
     x = variable(Int)
     p = (x-1)*(2x-3)
-    rts_q = polyroots(p, Over.Q)
-    rts_z = polyroots(p, Over.Z)
+    rts_q = poly_roots(p, Over.Q)
+    rts_z = poly_roots(p, Over.Z)
     @test length(rts_q) == 2
     @test length(rts_z) == 1
 end
@@ -127,21 +127,21 @@ end
     # over.C
     ## all methods promote, this just checks for errors
     for T in FTs
-        polyroots(fn, Over.CC{T})
+        poly_roots(fn, Over.CC{T})
     end
-    @test_throws MethodError polyroots(fn, Over.CC{Int})
+    @test_throws MethodError poly_roots(fn, Over.CC{Int})
 
     # over.R
-    [@test eltype(polyroots(fn, Over.RR{T})) == T for T in FTs]
-    @test_throws InexactError polyroots(fn, Over.RR{Int})
+    [@test eltype(poly_roots(fn, Over.RR{T})) == T for T in FTs]
+    @test_throws InexactError poly_roots(fn, Over.RR{Int})
 
     # over.Z
-    [polyroots(fn1, Over.ZZ{T})  for T in [Int16, Int32, Int64, Int128]]
-    @test eltype(polyroots(fn1, Over.ZZ{Int32})) == Int32
-    @test_throws MethodError polyroots(fn1, Over.ZZ{Float64})
+    [poly_roots(fn1, Over.ZZ{T})  for T in [Int16, Int32, Int64, Int128]]
+    @test eltype(poly_roots(fn1, Over.ZZ{Int32})) == Int32
+    @test_throws MethodError poly_roots(fn1, Over.ZZ{Float64})
 
     p = poly([3.0])^5
-    @test_throws MethodError polyroots(p, Over.Z) # p has Float64 coefficients.
-    @test polyroots(convert(Poly{Int}, p), Over.Z) == [3]
+    @test_throws MethodError poly_roots(p, Over.Z) # p has Float64 coefficients.
+    @test poly_roots(convert(Poly{Int}, p), Over.Z) == [3]
     
 end

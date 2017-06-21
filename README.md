@@ -9,7 +9,7 @@ Methods to find zeros (roots) of polynomials over given domains
 [![codecov.io](http://codecov.io/github/jverzani/PolynomialZeros.jl/coverage.svg?branch=master)](http://codecov.io/github/jverzani/PolynomialZeros.jl?branch=master)
 
 
-This package provides the method `polyroots` to find roots of
+This package provides the method `poly_roots` to find roots of
 univariate polynomial functions over the complex numbers, the real
 numbers, the rationals, the integers, and $Z_p$. (A "root" is the name
 for a "zero" of a polynomial.) The package takes advantage of many
@@ -20,7 +20,7 @@ other root-finding packages for polynomials within Julia (e.g.,
 The basic interface is
 
 ```
-polyroots(f, domain)
+poly_roots(f, domain)
 ```
 
 Where `f` is in `Poly{T}` (from the `Polynomials.jl` package) or can be converted into `Poly{T}`. The domain is specified by `Over.C`, `Over.R`, `Over.Q`, `Over.Z`, or `over.Zp{p}`. Not all polynomials will have such a factorization.
@@ -29,7 +29,7 @@ Where `f` is in `Poly{T}` (from the `Polynomials.jl` package) or can be converte
 Examples:
 
 ```
-julia> polyroots(x -> x^4 - 1, Over.C)  # uses `roots` from `PolynomialRoots.jl`
+julia> poly_roots(x -> x^4 - 1, Over.C)  # uses `roots` from `PolynomialRoots.jl`
 4-element Array{Complex{Float64},1}:
   0.0+1.0im
   1.0-0.0im
@@ -37,22 +37,22 @@ julia> polyroots(x -> x^4 - 1, Over.C)  # uses `roots` from `PolynomialRoots.jl`
  -1.0+0.0im
 
 
-julia> polyroots(x -> x^4 - 1, Over.R)  # also realroots(x -> x^4 - 1)
+julia> poly_roots(x -> x^4 - 1, Over.R)  
 2-element Array{Float64,1}:
   1.0
   -1.0
   
-julia> polyroots(x -> x^4 - 1, Over.Q) # uses `PolynomialFactors.jl`
+julia> poly_roots(x -> x^4 - 1, Over.Q) # uses `PolynomialFactors.jl`
 2-element Array{Rational{Int64},1}:
  -1//1
   1//1
 
-julia> polyroots(x -> x^4 - 1, Over.Z) # uses `PolynomialFactors.jl`
+julia> poly_roots(x -> x^4 - 1, Over.Z) # uses `PolynomialFactors.jl`
 2-element Array{Int64,1}:
  -1
   1
 
-julia> polyroots(x -> x^4 - 1, Over.Zp{5}) # uses `PolynomialFactors.jl`
+julia> poly_roots(x -> x^4 - 1, Over.Zp{5}) # uses `PolynomialFactors.jl`
 4-element Array{Int64,1}:
  4
  1
@@ -64,7 +64,7 @@ Domains can also have their types specified. For example, to solve
 over the `BigFloat` type, we have:
 
 ```julia
-polyroots(x -> x^4 - 1, Over.CC{BigFloat})  # `CC{BigFloat}` not just `C`
+poly_roots(x -> x^4 - 1, Over.CC{BigFloat})  # `CC{BigFloat}` not just `C`
 ```
 
 ## Details
@@ -97,11 +97,10 @@ The package also provides
 
 * `PolynomialZeros.agcd` for computing an *approximate* GCD of
   polynomials `p` and `q` over `Poly{Float64}`. (This is used to
-  reduce a polynomial over the real to a square-free
-  polynomial. Square-free polynomials are needed for the `realroots`
-  algorithm. However, the `agcd` function begins to be inaccurate for
-  higher degree polynomials, so this is not the default behaviour of
-  `realroots`, rather it must be requested.)
+  reduce a polynomial over the reals to a square-free
+  polynomial. Square-free polynomials are needed for the
+  algorithm used. However, the `agcd` function begins to be inaccurate for
+  higher degree polynomials, so this is not the default behaviour, rather it must be requested.)
 
 * `PolynomialZeros.multroot` for finding roots of `p` in
   `Poly{Float64}` over `Complex{Float64}` which has some advantage if
@@ -113,4 +112,6 @@ The package also provides
   "Computing multiple roots of inexact polynomials", Math. Comp. 74
   (2005), 869-903.
 
+
+## What to name these functions
 
