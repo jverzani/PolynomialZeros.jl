@@ -1,18 +1,5 @@
 module RealRoots
 
-## This is pretty slow:
-## * using `Poly` class is slow as new polys allocate
-## * the poly translation: Tλ, Hλ, and R are slow. Could rewrite using arrays too
-## This is not robust
-## * the newton search is more primitive than suggested, as it cuts down on calls to admissible points
-## * we don'tuse interval arithmetic, as it take about 3 times as long per computaion. This would be worth it, but...
-## * we aren't careful with the floating point size.
-
-
-using Polynomials
-using Compat
-using ..AGCD
-import Roots # fzero
 
 ## Find real roots of a polynomial using a DesCartes Method
 ##
@@ -27,7 +14,7 @@ import Roots # fzero
 ## This implementation doesn't take nearly enough care with the details, but takes some ideas
 ## to implement a means to find real roots of non-pathological polynomials (lowish degree, roots separated)
 ##
-## implementation using interval arithmetic seemed to be slower, but no more succesful in avoiding numeric issues
+## XXX Needs work XXX
 
 ## Polynomial transformations
 ##
@@ -35,108 +22,21 @@ import Roots # fzero
 ## https://arxiv.org/pdf/1605.00410.pdf has a better strategy
 ## of partial Taylor shifts, using just the nearby roots
 ## 
-## We did not implement the full Newton test, but this would need to
-## be implemented too.
-
-" `p(x + λ)`: Translate polynomial left by λ "
-Tλ(p, λ=1)   = polyval(p, variable(p) + λ)
-
-" `R(p)` finds  `x^n p(1/x)` which is a reversal of coefficients "
-R(p) = Poly(reverse(p.a), p.var)
-
-" `p(λ x)`: scale x axis by λ "
-Hλ(p, λ=1//2) = polyval(p, λ * variable(p))
 
 
+using Compat
+using Polynomials
+import Roots: fzero
+using ..AGCD
 
-
-## Upper bound on size of real roots that is tighter than cauchy
-## titan.princeton.edu/papers/claire/hertz-etal-99.ps
-function upperbound{T}(p::Poly{T})::T
-    descartes_bound(p) == 0 && return zero(T)
-    
-    q, d = p/p[end], degree(p)
-    
-    d == 0 && error("degree 0 is a constant")
-    d == 1 && abs(q[0])
-
-
-    a1 = abs(q[d-1])
-    B = maximum([abs(q[i]) for i in 0:(d-2)])
-
-    a,b,c = 1, -(1+a1), a1-B
-    (-b + sqrt(b^2 - 4a*c))/2
+# for interface
+type PolyType{T}
+    p::Vector{T}
 end
-
-function lowerbound{T <: Real}(p::Poly{T})::T
-    q = p(-variable(p))
-    -upperbound(q)
-end
+@compat (p::PolyType)(x) = poly_eval(p.p, x)
 
 
-"""
-
-Use Descarte's rule of signs to compute a bound on the number of *postive* roots of p: n-2k
-
-"""
-## count upper bound on number of positive roots
-## use -1 to signal an issue
-function descartes_bound{T}(p::Poly{T})
-    sgs = Int[]
-    n = length(p.a)
-    for i in n:-1:1
-        s = sign(p.a[i])
-        if s < 0
-            push!(sgs, -1)
-        elseif s > 0
-            push!(sgs, 1)
-        elseif iszero(s)
-            # do not push zero
-        end
-    end
-    count_sign_changes(sgs)
-end
-
-# function descartes_bound{T}(p::Poly{ValidatedNumerics.Interval{T}})
-#     sgs = Int[]
-#     n = length(p.a)
-#     for i in n:-1:1
-#         s = sign(p.a[i])
-#         if s < 0
-#             push!(sgs, -1)
-#         elseif s > 0
-#             push!(sgs, 1)
-#         elseif iszero(s.lo) && iszero(s.hi)
-#             # do not push zero
-#         else
-#             return -1 # inconclusive
-#         end
-#     end
-#     count_sign_changes(sgs)
-# end
-
-
-
-function count_sign_changes(as::Vector)
-    length(as) == 0 && return -1
-    cnt, sgn = 0, sign(as[1])
-    for i in 2:length(as)
-        nsgn = sign(as[i])
-        if nsgn * sgn < 0
-            sgn = nsgn
-            cnt += 1
-        end
-    end
-    cnt
-end
-
-
-## Descarte's upperbound on possible zeros in (0,1)
-function DesBound(p::Poly)
-    q = Tλ(R(p),1)
-    descartes_bound(q)
-end
-
+degree{T}(p::Vector{T}) = findlast(p) - 1
 
 
 ## Interval with [a,b], N
@@ -158,25 +58,174 @@ immutable State{T}
     Internal::Vector{Intervalab{T,T}}                    # DesBound > 1
     Isol::Vector{Intervalab{T,T}}                        # DesBound == 1
     Unresolved::Vector{Intervalab{T,T}}
-    p::Poly{T}
+    p::Vector{T}
 end
 
-State{T <: AbstractFloat}(p::Poly{T}) = State(Intervalab{T,T}[], Intervalab{T,T}[], Intervalab{T,T}[], p)
+State{T}(p::Vector{T}) = State(Intervalab{T,T}[], Intervalab{T,T}[], Intervalab{T,T}[], p)
+@compat (st::State)(x) = poly_eval(st.p, x)
 
+# polys over vectors mutating first
 
-DesBound(p, a::Real, b::Real) = DesBound(Pab(p, a, b))
-DesBound(p, node::Intervalab) = DesBound(p, node.a, node.b)
+# poly is [p_0, p_1, ..., p_n] where there may be zeros in last terms
 
-function DescartesBound_ab{T}(st::State{T}, node)
+# p + q
+function poly_add!{T, S}(p::Vector{T}, q::Vector{S})
+    n,m = length(p), length(q)
+    l = min(n, m)
+    for i in 1:l
+        p[i] += q[i]
+    end
+    for i in l:m
+        push!(p, q[i])
+    end
+end
 
-    a, b = node.a, node.b
+# p-q
+poly_sub!{T, S}(p::Vector{T}, q::Vector{S}) = poly_add(p, -q)
+
+# may be more than one way
+function poly_mul!{T, S}(p1::Vector{T}, p2::Vector{S})
+    R = promote_type(T,S)
+
+    n = length(p1)
+    m = length(p2)
     
-    p1 = Hλ(Tλ(st.p, a), b-a)
-    p2 = Tλ(R(p1),1)
-    cnt = descartes_bound(p2)
+    a = zeros(R,m+n+1)
 
-    return cnt
+    for i = 1:n
+        for j = 1:m
+            a[i+j+1] += p1[i] * p2[j]
+        end
+    end
+    p1[:] = a
+
 end
+
+
+function poly_deriv!{T}(p::Vector{T})
+    for i = 1:length(p)-1
+        p[i] = i * p[i+1]
+    end
+    p[end] = zero(T)
+    p
+end
+
+
+function poly_eval{T, S}(p::Vector{T}, x::S)
+    R = promote_type(T,S)
+
+    y = convert(R, p[end])
+
+    for i = (endof(p)-1):-1:1
+        y = p[i] + x*y
+    end
+    return y
+end
+
+
+" `p(x + λ)`: Translate polynomial left by λ "
+function poly_translate!{T}(p::Vector{T}, lambda=1)
+    p1 = copy(p)
+    p[1] = poly_eval(p1, lambda)
+    m = one(T)
+    for k in 2:length(p1)
+        p[k] = poly_eval(poly_deriv!(p1), lambda) / m
+        m *= k
+    end
+    p
+end
+Tλ(p, lambda=1)   = poly_translate!(copy(p), lambda)
+
+" `R(p)` finds  `x^n p(1/x)` which is a reversal of coefficients "
+function poly_reverse!(p)
+    reverse!(p)
+end
+R(p) = poly_reverse!(copy(p))
+
+" `p(λ x)`: scale x axis by λ "
+function poly_scale!(p, lambda)
+    for i in 2:length(p)
+        p[i] *= lambda^(i-1)
+    end
+end
+Hλ{T}(p::Vector{T}, λ=one(T)) = poly_scale!(copy(p), λ)
+
+"q = p(-x)"
+function poly_flip!{T}(p::Vector{T})
+    for i in 2:2:length(p)
+        p[i] = -p[i]
+    end
+end
+
+
+## Upper bound on size of real roots that is tighter than cauchy
+## titan.princeton.edu/papers/claire/hertz-etal-99.ps
+function upperbound{T}(p::Vector{T})::T
+    p = p[findfirst(p):end]
+    descartes_bound(p) == 0 && return zero(T)
+
+    p = p[findfirst(p):end]
+    
+    q, d = p/p[end], length(p)-1
+    
+    d == 0 && error("degree 0 is a constant")
+    d == 1 && abs(q[1])
+
+
+    a1 = abs(q[d])
+    B = maximum([abs(q[i]) for i in 1:(d-1)])
+
+    a,b,c = 1, -(1+a1), a1-B
+    (-b + sqrt(b^2 - 4a*c))/2
+end
+
+function lowerbound{T <: Real}(p::Vector{T})::T
+    p = p[findfirst(p):end]
+    
+    poly_flip!(p)
+    ret = -upperbound(p)
+    poly_flip!(p)
+    ret
+end
+
+
+
+
+
+## Descartes Bounds
+
+" Descartes bound on (0,oo). Just count sign changes"
+function descartes_bound{T}(p::Vector{T})
+    length(p) == 0 && return -1
+    cnt, sgn = 0, sign(p[1])
+    for i in 2:length(p)
+        nsgn = sign(p[i])
+        if nsgn * sgn < 0
+            sgn = nsgn
+            cnt += 1
+        end
+    end
+    cnt
+end
+
+
+# shift polynomial so (a,b) -> (0, oo)
+function translate_ab{T}(p::Vector{T}, a, b)
+    #    p0 = Tλ(p, a)
+    #    p1 = Hλ(p0, b-a)
+    #    p2 = Tλ(R(p1),1)
+
+    p1 = copy(p)
+    poly_translate!(p1, a)
+    poly_scale!(p1, b-a)
+    poly_reverse!(p1)
+    poly_translate!(p1, one(T))
+    p1
+end
+
+" Descartes bound on (a, b)"
+descartes_bound_ab{T}(p::Vector{T}, a, b) = descartes_bound(translate_ab(p, a, b))
+DescartesBound_ab(st, node) = descartes_bound_ab(st.p, node.a, node.b)
 
 ## Tests
 
@@ -194,33 +243,19 @@ function find_admissible_point{T}(st::State{T},  I::Intervalab, m=midpoint(I), N
     N = ceil(Int, c * degree(st.p)/2)
     ep = min(m-I.a, I.b - m) / (4*Ni)
     mis = [m + i/N * ep for i in -N:N]
+    curmin = min(norm(st(I.a)), norm(st(I.b)))/100
     for m in shuffle(mis)
         (m < I.b || m > I.a) || continue
-        norm(st.p(m)) > 0 && return m
+        descartes_bound_ab(st.p, I.a, m) == -1 && continue
+        descartes_bound_ab(st.p, m, I.b) == -1 && continue        
+        norm(st(m)) > 0 && return m
     end
+
+    error("No admissible point found")
 #    mx, i = findmax(norm.(st.p.(mis)))
 #    mis[i]
 end
 
-
-## split an interval up into 2^n pieces. This is useful at the outset
-function break_up_interval{T,R}(st::State{T}, I::Intervalab{R}, n::Int=5)
-    ointervals = [I]
-    N = I.N
-    while n > 0
-        intervals = Any[]
-        for node in ointervals
-            mi = find_admissible_point(st, node)
-            u,v=promote(node.a, mi)
-            push!(intervals, Intervalab(u,v, N, -2))
-            v,w = promote(mi, node.b)
-            push!(intervals, Intervalab(v, w, N, -2))
-        end
-        ointervals = copy(intervals)
-        n -= 1
-    end
-    ointervals
-end
 
 # find splitting point
 # find an admissible point that can be used to split interval. Needs to have all
@@ -231,17 +266,19 @@ function split_interval{T}(st::State{T},I::Intervalab,  m=midpoint(I), Ni=one(T)
     ep = min(1, width(I)) / (16*Ni)
     mis = T[m + i/N * ep for i in -N:N]
     mis = filter(m -> m > I.a && m < I.b, mis)
-    mx, i = findmax(norm.(st.p.(mis)))
+    mx, i = findmax(norm.(st.(mis)))
 
-    ## Now, we need apoint that is bigger than max and leaves conclusive
+    ## Now, we need a point that is bigger than max and leaves conclusive
     for i in eachindex(mis)
         mi = mis[i]
-        abs(st.p(mi)) >= min(mx/4, one(T)) || continue
+        abs(st(mi)) >= min(mx/4, one(T)) || continue
         ileft = Intervalab(I.a, mi, I.N, -2)
-        nl = DescartesBound_ab(st, ileft)        
+        nl = DescartesBound_ab(st, ileft)
+        #nl = descartes_bound_ab(fatten(st.p), ileft.a, ileft.b)                
         nl == -1 && continue
         iright = Intervalab(mi, I.b, I.N, -2)
-        nr = DescartesBound_ab(st, iright)        
+        nr = DescartesBound_ab(st, iright)
+        #nr = descartes_bound_ab(fatten(st.p), iright.a, iright.b)                        
         nr == -1 && continue
 
         # XXX improve this XXX
@@ -265,7 +302,7 @@ function split_interval{T}(st::State{T},I::Intervalab,  m=midpoint(I), Ni=one(T)
         
         return (true, ileft, iright)
     end
-
+    #    println("DEBUG: $I is a bad interval for splitting?")
     return (false, I, I)
 end
 
@@ -287,6 +324,7 @@ function linear_step{T}(st::State{T}, node)
 end
 
 
+
 ## return (true, I), (false, node)
 ## I will be smaller interval containing all roots in node
 function newton_test{T}(st::State{T}, node)
@@ -294,10 +332,12 @@ function newton_test{T}(st::State{T}, node)
     (node.N > NMAX) && return (false, node) 
     (zero_one_test(st, node) in (0,1)) && return(false, node)
 
-    a, b, w, N, bnd  = node.a, node.b, width(node), node.N, node.bnd
+    a, b, m, w, N, bnd  = node.a, node.b, midpoint(node), width(node), node.N, node.bnd
 
-    a1 = a - st.p(a) / polyder(st.p)(a)
-    b1 = b - st.p(b) / polyder(st.p)(b)
+    pprime = poly_deriv!(copy(st.p))
+    
+    a1 = a - st(a) / poly_eval(pprime, a)
+    b1 = b - st(b) / poly_eval(pprime, b)
 
     if a < a1 && zero_test(st, Intervalab(a, a1, N, 0))
         if b1 < b && zero_test(st, Intervalab(b1, b, N, 0))
@@ -323,66 +363,6 @@ function newton_test{T}(st::State{T}, node)
     return (false, node)
 end
 
-## This is the newton test from the paper. The above one avoids doing more checks which are costly
-function newton_test_XX{T}(st::State{T}, node)
-
-    const NMAX = 2147483648  # 2^31
-    (node.N > NMAX) && return (false, node)  
-    (zero_one_test in (0,1)) && return(false, node)
-
-    a, b, w, N, bnd  = node.a, node.b, width(node), node.N, node.bnd
-    psis = T[a + (j/4) * w for j in 1:3]
-    psi_stars = T[find_admissible_point(st, node, psi) for psi in psis]
-    vs = st.p.(psi_stars) ./ polyder(st.p).(psi_stars)
-
-    lambdas = zeros(T, 3, 3)
-    for i in 1:3
-        for j in (i+1):3
-            
-            lambdas[i,j] = psi_stars[i] - (psi_stars[j] - psi_stars[i]) / (vs[j] -vs[i]) * vs[i]
-            # compute approximations
-            if  lambdas[i,j]  < a ||  lambdas[i,j]  > b
-                ## println("outside [a.b]")
-                continue
-            end
-            lij = floor((lambdas[i,j] - a) * 4* N / w)
-
-            aij = a + max(zero(T), lij - 1) * w / (4N)
-            ## println("aij=$aij, admiss=$(find_admissible_point(st, node, aij))")
-            isnan(aij) && continue
-            aij = find_admissible_point(st, Intervalab(a, b, node.N, -2), aij)
-
-            bij = a + min(4N, lij + 2) * w / (4N)
-            isnan(bij) && continue            
-            bij = find_admissible_point(st, Intervalab(a, b, node.N, -2), bij)
-
-            println("Okay, zero test?")
-            println(zero_test(st, Intervalab(a, aij, N,0)))
-            println(zero_test(st, Intervalab(bij, b, N,0)))
-            println("$a < $aij < $bij < $b")
-            println("===")
-            ## okay, how did we do?
-            if (aij >= a && bij <= b) && zero_test(st, Intervalab(a, aij, N,0)) && zero_test(st, Intervalab(bij, b, N,0)) 
-#                println("squeeze: a=$aij, b = $bij")
-                return (true, Intervalab(aij, bij, N^2, node.bnd))
-            end
-        end
-    end
-    # boundary test
-    mlstar::T = find_admissible_point(st, node, a + w/(2N))
-    mrstar::T = find_admissible_point(st, node, b - w/(2N))
-    al = Intervalab(a, mlstar, N,-2)
-    br = Intervalab(mrstar, b, N,-2)
-
-    if mlstar > a && zero_test(st, Intervalab(mlstar, b, N,-2))
-        return (true, Intervalab(a, mlstar, N,-2))
-    elseif mrstar < b && zero_test(st, Intervalab(a, mrstar, N,-2))
-        return (true, Intervalab(mrstar, b, N,-2))
-    else
-        return (false, node)
-    end
-end
-
 
 
 ## Add successors to I
@@ -405,10 +385,9 @@ function addSucc{T}(st::State{T}, node)
     true
 end
 
-
 ## m, M should bound the roots
 ## essentially algorithm 4
-function ANewDsc{T <: Real}(p::Poly{T}, m = lowerbound(p), M=upperbound(p))
+function ANewDsc{T <: Real}(p::Vector{T}, m = lowerbound(p), M=upperbound(p))
 
     st = State(p)
     base_node = Intervalab(m, M, 4, -2)    
@@ -445,47 +424,82 @@ function ANewDsc{T <: Real}(p::Poly{T}, m = lowerbound(p), M=upperbound(p))
     st
 end
 
+
 # populate `Isol`
 # p must not have any roots with even degree. (e.g. no (x-c)^(2k) exists as a factor for any c,k
 # assumed square free (at least no roots of even multiplicity)
-function isolate_roots{T <: Real}(p::Poly{T}, m, M)
+function isolate_roots{T <: Real}(p::Vector{T}, m, M)
 
-    try
-        st = ANewDsc(p, m, M)
-        return st
-    catch err
-        if  !(T <: BigFloat)
-            try
-                st = ANewDsc(convert(Poly{BigFloat}, p), m, M)
-                return st
-            catch err
-                rethrow(err)
-            end
-        end
-    end
+#    try
+    st = ANewDsc(p, m, M)
+    return st
+    # catch err
+    #     if  !(T <: BigFloat)
+    #         try
+    #             st = ANewDsc(convert(Poly{BigFloat}, p), m, M)
+    #             return st
+    #         catch err
+    #             rethrow(err)
+    #         end
+    #     end
+    # end
         
 end
 
+# non-allocating bisection method
+function bisection(f, a::Float64, b::Float64)
+
+    sign(f(a)) * sign(f(b)) < 0 || return NaN
 
 
-function real_roots{T <: Real}(p::Poly{T}, m = lowerbound(p), M=upperbound(p); square_free::Bool=true)
+    m = Roots._middle(a,b)
+
+    fa = sign(f(a)); fb = sign(f(b))
+    
+    while a < m < b
+        fm = sign(f(m))
+        iszero(fm) && return(m)
+        
+        if fa * fm < 0
+            b,fb=m,fm
+        else
+            a,fa=m,fm
+        end
+    end
+    return m
+end
+
+
+"""
+
+     real_roots(p, [m], [M]; square_free=true)
+
+Returns real roots of a polynomial presented via its coefficients `[p_0, p_1, ..., p_n]`. 
+
+* `p`: polynomial coefficients, `Vector{T<:Real}`
+* `m`: lower bound on real roots. Defaults to `lowerbound(p)`
+* `M`: upper bound on real roots. Defaults to `upperbound(p)`
+* `square_free`::Bool. If false, the polynomial `agcd(p, polyder(p))` is used. This polynomial---in theory--- would have the
+same real roots as `p`, however in practice the approximate `gcd` can be off.
+
+"""
+real_roots{T <: Real}(p::Poly{T}, args...; kwargs...) = real_roots(p.a, args...; kwargs...)
+function real_roots{T <: Real}(p::Vector{T}, m = lowerbound(p), M=upperbound(p); square_free::Bool=true)
 
     # deflate zero
-    nzroots = findfirst(p.a) - 1
-    if nzroots > 0
-        p = Poly(p.a[nzroots+1:end])
+    nzroots = 0
+    while iszero(p[1])
+        shift!(p)
+        nzroots += 1
     end
-    
-    
-    
+
     if !square_free
-        u,v,w,err = AGCD.agcd(p, polyder(p))
-    else
-        v = p
+        u,v,w,err = AGCD.agcd(Poly(p), polyder(Poly(p)))
+        p = v.a
     end
-
-    st = isolate_roots(v, m, M)
-
+    
+    st = isolate_roots(p, m, M)
+    
     if length(st.Unresolved) > 0
         println("Some intervals are unresolved:")
         println("------------------------------")
@@ -498,26 +512,16 @@ function real_roots{T <: Real}(p::Poly{T}, m = lowerbound(p), M=upperbound(p); s
     rts = zeros(T, length(st.Isol))
     for i in eachindex(st.Isol)
         node = st.Isol[i]
-        ## println("find root in $(node.a), $(node.b), $(p(node.a)), $(p(node.b))")
         rt = try
-            Roots.fzero(x -> v(x), node.a, node.b)
+            bisection(PolyType(p), Float64(node.a), Float64(node.b))
         catch err
-            Roots.fzero(x -> v(x), big(node.a), big(node.b))
+            fzero(PolyType(p), big(node.a), big(node.b))
         end
         rts[i] = rt
     end
 
-    if nzroots > 0
-        rts = push!(rts, zero(T))
-    end
-    
+    nzroots > 0 && push!(rts, zero(T))
     rts
 end
         
-
-
-
 end
-
-
-

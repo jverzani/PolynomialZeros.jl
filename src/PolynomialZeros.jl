@@ -3,7 +3,11 @@ module PolynomialZeros
 
 using Polynomials
 import PolynomialRoots
+
+using Iterators
+using Combinatorics
 using PolynomialFactors
+
 #using AMVW
 using Compat
 

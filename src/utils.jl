@@ -10,7 +10,8 @@ it can be evaluated on the `Polynomial` monomial `x`.
 """
 as_poly(f::Poly) = f
 as_poly(T, f::Poly) = convert(Poly{T}, f)
-as_poly{T}(xs::Vector{T}) = poly(xs)
+as_poly{T}(xs::Vector{T}) = Poly(xs)
+as_poly{T}(S::T, xs::Vector) = Poly(convert(Vector{S},xs))
 
 ## Try to convert a callable object into a polynomial, `Poly{T}`. `T` can be specified, or guessed from calling `f(0)`.
 function as_poly(f)
