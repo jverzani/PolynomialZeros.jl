@@ -9,7 +9,6 @@ using Combinatorics
 using PolynomialFactors
 import Roots: fzeros
 
-#using AMVW
 using Compat
 
 
@@ -28,7 +27,7 @@ include("special_cases.jl")
 
 include("agcd/agcd.jl")        # AGCD.agcd
 include("agcd/multroot.jl")    # MultRoot.multroot
-
+include("amvw/AMVW.jl")        # AMVW.poly_roots
 include("RealRoots/real_roots.jl")  # RealRoots.real_roots(p::Poly)
 
 
@@ -36,10 +35,6 @@ using .AGCD
 using .MultRoot
 
 
-# Separate pakage?
-#import AMVW
-#include("AMVW/AMVW.jl")        # AMVW.amvw or AMVW.amvw_pencil
-#using .AMVW
 
 
 
@@ -55,9 +50,10 @@ using .MultRoot
       (`Complex{Float64}`). Use `Over.CC{T}` to specfy a type `T<:
       AbstractFloat` other than `Float64`. The default method is from
       `PolynomialRoots`. Pass the argument `method=:roots` to use the
-      `roots` function from `Polynomials.jl`. For a degree n
-      polynomial over C, all n roots should be returned (including
-      multiplicities).
+      `roots` function from `Polynomials.jl`. Pass the argument
+      `method=:amvw` to use an algorithm by Aurentz, Mach, Vandebril,
+      and Watkins. For a degree n polynomial over C, all n roots
+      should be returned (including multiplicities).
 
     - `over.R` for solving over the real line (`Float64`). Use
       `Over.RR{T}` to specify a `T <: Integer` other than
@@ -114,12 +110,12 @@ function poly_roots{T<:AbstractFloat}(f, U::Type{Over.CC{T}}; method=:Polynomial
     if fn == identity
         if method == :PolynomialRoots
             PolynomialRoots.roots(ps, polish=true)
-#        elseif method == :AMVW
-#            AMVW.poly_roots(ps)
+        elseif (method == :AMVW || method == :amvw)
+                AMVW.poly_roots(ps)
 #        elseif method ==:AMVW_Pencil
 #            AMVW.poly_roots(ps)
-        else
-            convert(Vector{Complex{Float64}}, roots(Poly(ps)))
+        else # default to Polynomials.roots.
+            convert(Vector{Complex{Float64}}, Polynomials.roots(Poly(ps)))
         end
     else
         fn(ps, U)

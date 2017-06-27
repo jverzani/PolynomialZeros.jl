@@ -4,6 +4,9 @@ using Base.Test
 using Compat
 import Compat.iszero
 
+include("test-amvw.jl")
+
+
 ## Some Polynomial Familes
 function Wilkinson(n, T=Float64)
     x = variable(T)
@@ -50,7 +53,7 @@ end
     ## we have different methods
     rts = 1.0:6; p = poly(rts)
     fn = x -> x^5 - x - 1
-    for m in [:PolynomialRoots, :Roots, :AMVW]
+    for m in [:PolynomialRoots, :roots, :amvw]
         @test maximum(norm.(sort(poly_roots(p, Over.C, method=m), by=norm) .- rts)) <= 1e-10
         poly_roots(fn, Over.C, method=m)
     end

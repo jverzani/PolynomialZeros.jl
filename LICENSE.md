@@ -1,6 +1,10 @@
 The PolynomialZeros.jl package is licensed under the MIT "Expat" License:
 
 > Copyright (c) 2017: jverzani.
+>
+> AMVW code is derived from
+> https://people.cs.kuleuven.be/~raf.vandebril/homepage/software/companion_qr.php
+> which is licenced here: https://github.com/eiscor/eiscor
 > 
 > Permission is hereby granted, free of charge, to any person obtaining a copy
 > of this software and associated documentation files (the "Software"), to deal
