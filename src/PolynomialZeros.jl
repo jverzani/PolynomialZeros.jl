@@ -7,6 +7,7 @@ import PolynomialRoots
 using Iterators
 using Combinatorics
 using PolynomialFactors
+import Roots: fzeros
 
 #using AMVW
 using Compat
@@ -53,7 +54,7 @@ using .MultRoot
     - `over.C` (the default) for solving over complex values
       (`Complex{Float64}`). Use `Over.CC{T}` to specfy a type `T<:
       AbstractFloat` other than `Float64`. The default method is from
-      `PolynomialRoots`. Pass the argument `method=:Roots` to use the
+      `PolynomialRoots`. Pass the argument `method=:roots` to use the
       `roots` function from `Polynomials.jl`. For a degree n
       polynomial over C, all n roots should be returned (including
       multiplicities).
@@ -203,6 +204,11 @@ function poly_roots{q}(f, U::Type{Over.Zp{q}})
     end
     
 end
+
+
+## handle roots deprecations
+#fzeros(p) = poly_roots(p, Over.R, square_free=false)
+#Polynomials.roots(p::Vector) = poly_roots(p, Over.C, method=:roots)
 
 
 end # module

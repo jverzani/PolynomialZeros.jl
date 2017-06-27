@@ -10,6 +10,7 @@ it can be evaluated on the `Polynomial` monomial `x`.
 """
 as_poly(f::Poly) = f
 as_poly(T, f::Poly) = convert(Poly{T}, f)
+
 as_poly{T}(xs::Vector{T}) = Poly(xs)
 as_poly{T}(S::T, xs::Vector) = Poly(convert(Vector{S},xs))
 
