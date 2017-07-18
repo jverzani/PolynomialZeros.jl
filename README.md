@@ -91,7 +91,7 @@ the underlying algorithms.
 In the process of doing this, making a common interface to the other
 root-finding packages seemed to make sense.
 
-### Other possible useful methods
+### Other possibly useful methods
 
 The package also provides
 
@@ -111,7 +111,4 @@ The package also provides
   case a bit better. The function follows algorithms due to Zeng,
   "Computing multiple roots of inexact polynomials", Math. Comp. 74
   (2005), 869-903.
-
-
-## What to name these functions
 
