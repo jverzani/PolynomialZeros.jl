@@ -26,30 +26,30 @@ check_linear(ps) = length(ps) == 2 || throw(DomainError())
 ## Over C
 function solve_linear{T <: Real, S}(ps::Vector{Complex{T}}, ::Type{Over.CC{S}})
     check_linear(ps)
-    Complex{S}[ps[1] / ps[2]]
+    Complex{S}[-ps[1] / ps[2]]
 end
 solve_linear{T <: Real, S}(ps::Vector{T}, ::Type{Over.CC{S}}) = solve_linear(complex.(ps,zeros(T,2)), Over.CC{S})
 
 ## Over R
 function solve_linear{T <: Real, S}(ps::Vector{T}, ::Type{Over.RR{S}})
     check_linear(ps)
-    S[ps[1] / ps[2]]
+    S[-ps[1] / ps[2]]
 end
 
 ## Over Q
 function solve_linear{T <: Integer, S}(ps::Vector{T}, ::Type{Over.QQ{S}})
     check_linear(ps)
-    Rational{S}[ps[1] // ps[2]]
+    Rational{S}[-ps[1] // ps[2]]
 end
 function solve_linear{T <: Integer, S}(ps::Vector{Rational{T}}, ::Type{Over.QQ{S}})
     check_linear(ps)
-    Rational{S}[ps[1] // ps[2]]
+    Rational{S}[-ps[1] // ps[2]]
 end
 
 ## Over Z
 function solve_linear{T <: Integer, S}(ps::Vector{T}, ::Type{Over.ZZ{S}})
     check_linear(ps)
-    q,r = divrem(ps[1], ps[2])
+    q,r = divrem(-ps[1], ps[2])
     if r == 0
         S[q]
     else
@@ -98,7 +98,7 @@ end
 
 function solve_quadratic{T <: Real, S}(ps::Vector{T}, U::Type{Over.CC{S}})
     check_quadratic(ps)
-    iszero(ps[1]) && return solve_linear(ps[2:end], U)
+    iszero(ps[1]) && return vcat(zero(S), solve_linear(ps[2:end], U))
     
     
     r1,i1,r2,i2 = qdrtc(ps[3], -(0.5) * ps[2], ps[1])
@@ -107,7 +107,7 @@ end
 
 function solve_quadratic{T <: Real, S}(ps::Vector{T}, U::Type{Over.RR{S}})
     check_quadratic(ps)
-    iszero(ps[1]) && return solve_linear(ps[2:end], U)
+    iszero(ps[1]) && return vcat(zero(S), solve_linear(ps[2:end], U))
     
     r1,i1,r2,i2 = qdrtc(ps[3], -(0.5) * ps[2], ps[1])
     if iszero(i1)
