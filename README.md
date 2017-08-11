@@ -2,11 +2,11 @@
 
 Methods to find zeros (roots) of polynomials over given domains
 
-[![Build Status](https://travis-ci.org/jverzani/PolynomialZeros.jl.svg?branch=master)](https://travis-ci.org/jverzani/PolynomialZeros.jl)
+Linux: [![Build Status](https://travis-ci.org/jverzani/PolynomialZeros.jl.svg?branch=master)](https://travis-ci.org/jverzani/PolynomialZeros.jl)
 
-[![Coverage Status](https://coveralls.io/repos/jverzani/PolynomialZeros.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/jverzani/PolynomialZeros.jl?branch=master)
+Windows:
+[![Build status](https://ci.appveyor.com/api/projects/status/ovkutr0gxrdtjxmb/branch/master?svg=true)](https://ci.appveyor.com/project/jverzani/polynomialzeros-jl/branch/master)
 
-[![codecov.io](http://codecov.io/github/jverzani/PolynomialZeros.jl/coverage.svg?branch=master)](http://codecov.io/github/jverzani/PolynomialZeros.jl?branch=master)
 
 
 This package provides the method `poly_roots` to find roots of
