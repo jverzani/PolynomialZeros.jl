@@ -4,7 +4,6 @@ module PolynomialZeros
 using Polynomials
 import PolynomialRoots
 
-using Iterators
 using Combinatorics
 using PolynomialFactors
 import Roots: fzeros
