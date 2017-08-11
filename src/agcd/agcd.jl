@@ -525,7 +525,7 @@ end
 
 ## find alpha, gamma that minimize ratio of max coefficients to min coefficients, for getting zeros
 ## 1.12 writes this as a linear programming problem, we just ...
-function precondition(p::Poly{T}, q::Poly) where {T}
+function precondition{T}(p::Poly{T}, q::Poly)
 
     m = ratio(p,q)
 
