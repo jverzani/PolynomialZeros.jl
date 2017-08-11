@@ -1,5 +1,6 @@
 module MultRoot
-
+using Polynomials
+include("../utils.jl")
 ## The main function here is `MultRoot.multroot`
 
 ## Polynomial root finder for polynomials with multiple roots
@@ -23,7 +24,9 @@ module MultRoot
 
 using Polynomials
 import Polynomials: degree
-
+using ..AGCD
+monic(p) = p/p[end]
+rcoeffs(p) = reverse(p.a)
 
 ## map monic(p) to a point in C^n
 ## p = 1x^n + a1x^n-1 + ... + an_1 x + an -> (a1,a2,...,an)
@@ -80,7 +83,7 @@ function pejroot(p::Poly, z0::Vector, l::Vector{Int};
 
     ## Solve WJ Δz = W(Gl(z) - a) in algorithm I
     G(z) = (evalG(z, l) - a)
-    update(z, l) = z -  weighted_least_square(evalJ(z,l), G(z), wts)
+    update(z, l) = z -  AGCD.weighted_least_square(evalJ(z,l), G(z), wts)
 
     zk = copy(z0); zk1 = update(zk, l)
     deltaold = norm(zk1 - zk,2); zk = zk1
@@ -145,7 +148,7 @@ end
 ## julia> multroot(p)
 ## ([0.999885,1.00006],[1,2])
 function multroot(p::Poly;
-                  θ::Real=1.0,   # singular threshold, 1.0 is replaced by normf(A)*eps()
+                  θ::Real=1e-8,  # 
                   ρ::Real=1e-10, # initial residual tolerance
                   ϕ::Real=1e2,   # residual tolerance growth factor
                   δ::Real=1e-8   # passed to solve y sigma
@@ -169,7 +172,7 @@ function multroot(p::Poly;
     
     p = Poly(float(coeffs(p)))  # floats, not Int
 
-    u_j, v_j, w_j, residual= agcd(p, polyder(p),  ρ = ρ) 
+    u_j, v_j, w_j, residual= AGCD.agcd(p, polyder(p), θ=θ,  ρ=ρ) 
     ρ = max(ρ, ϕ * residual)
 
     ## bookkeeping
@@ -186,7 +189,7 @@ function multroot(p::Poly;
             break
         end
 
-        u_j, v_j, w_j, residual= agcd(p0, polyder(p0), ρ=ρ)
+        u_j, v_j, w_j, residual= AGCD.agcd(p0, polyder(p0), θ=θ, ρ=ρ)
 
         ## need to worry about residual between
         ## u0 * v0 - monic(p0) and u0 * w0 - monic(Polynomials.polyder(p0))
@@ -220,17 +223,9 @@ multroot{T <: Real}(p::Vector{T}; kwargs...) = multroot(Poly(p); kwargs...)
 
 ## Can pass in function
 function multroot(f::Function; kwargs...)
-    p = Poly([0.0])
-    try
-        p = convert(Poly{Float64}, f)
-    catch err
-        error("The function does not compute a univariate polynomial")
-    end
+    p = as_poly(Float64, f)
     multroot(p; kwargs...)        
 
-
-
-    
 end
 
 

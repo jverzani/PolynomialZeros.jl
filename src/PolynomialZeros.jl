@@ -125,11 +125,11 @@ end
 
 
 
-function poly_roots(f, ::Type{Over.R};square_free=true)
+function poly_roots(f, ::Type{Over.R};square_free=false)
     T = eltype(float(zero(e_type(f))))
     poly_roots(f, Over.RR{T}, square_free=square_free)
 end
-function poly_roots{T <: Real}(f, U::Type{Over.RR{T}}; square_free::Bool=true)
+function poly_roots{T <: Real}(f, U::Type{Over.RR{T}}; square_free::Bool=false)
 
     ps = convert(Vector{T},poly_coeffs(f))
     fn = special_case(ps, U)
