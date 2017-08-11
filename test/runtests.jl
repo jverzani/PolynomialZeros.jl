@@ -1,10 +1,10 @@
 using PolynomialZeros
 using Polynomials
 using Base.Test
-using Compat
-import Compat.iszero
+
 
 include("test-amvw.jl")
+include("test-multroot.jl")
 
 
 ## Some Polynomial Familes
@@ -71,12 +71,13 @@ end
     @test maximum(norm.(poly_roots(Chebyshev(5), Over.R))) <= 1
 
     p = Legendre(11)
-    rts = poly_roots(p, Over.R)
+    rts = poly_roots(p, Over.R, square_free=true) # needs help here
     @test maximum(p.(rts) ./ polyder(p).(rts)) <= 1e-14
 
 
-    p = poly([1.0, 2, 3, 3])
-    poly_roots(p, Over.R, square_free=false)
+    p = poly([1.0, 2, 2, 3, 3, 3])
+    rts = poly_roots(p, Over.R)
+    @test length(rts) == 3
 
     # test deflation
     fn = x -> x^3 * (x-1) * (x^2 + 1)

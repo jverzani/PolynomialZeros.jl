@@ -95,14 +95,13 @@ root-finding packages seemed to make sense.
 
 The package also provides
 
-* `PolynomialZeros.agcd` for computing an *approximate* GCD of
+* `PolynomialZeros.AGCD.agcd` for computing an *approximate* GCD of
   polynomials `p` and `q` over `Poly{Float64}`. (This is used to
   reduce a polynomial over the reals to a square-free
   polynomial. Square-free polynomials are needed for the
-  algorithm used. However, the `agcd` function begins to be inaccurate for
-  higher degree polynomials, so this is not the default behaviour, rather it must be requested.)
+  algorithm used. For can become unreliable for 15-or-more-degree polynomials.)
 
-* `PolynomialZeros.multroot` for finding roots of `p` in
+* `PolynomialZeros.MultRoot.multroot` for finding roots of `p` in
   `Poly{Float64}` over `Complex{Float64}` which has some advantage if
   `p` has high multiplicities. The `roots` function from the
   `Polynomials` package will find all the roots of a polynomial. Its
@@ -110,5 +109,5 @@ The package also provides
   multiplicities. The multroot function is provided to handle this
   case a bit better. The function follows algorithms due to Zeng,
   "Computing multiple roots of inexact polynomials", Math. Comp. 74
-  (2005), 869-903.
+  (2005), 869-903. 
 

@@ -390,6 +390,7 @@ end
 function ANewDsc{T <: Real}(p::Vector{T}, m = lowerbound(p), M=upperbound(p))
 
     st = State(p)
+
     base_node = Intervalab(m, M, 4, -2)    
     base_node.bnd = DescartesBound_ab(st, base_node)
 
@@ -484,7 +485,7 @@ same real roots as `p`, however in practice the approximate `gcd` can be off.
 
 """
 real_roots{T <: Real}(p::Poly{T}, args...; kwargs...) = real_roots(p.a, args...; kwargs...)
-function real_roots{T <: Real}(p::Vector{T}, m = lowerbound(p), M=upperbound(p); square_free::Bool=true)
+function real_roots{T <: Real}(p::Vector{T}, m = lowerbound(p), M=upperbound(p); square_free::Bool=false)
 
     # deflate zero
     nzroots = 0
@@ -497,6 +498,7 @@ function real_roots{T <: Real}(p::Vector{T}, m = lowerbound(p), M=upperbound(p);
         u,v,w,err = AGCD.agcd(Poly(p), polyder(Poly(p)))
         p = v.a
     end
+
     
     st = isolate_roots(p, m, M)
     
@@ -513,9 +515,9 @@ function real_roots{T <: Real}(p::Vector{T}, m = lowerbound(p), M=upperbound(p);
     for i in eachindex(st.Isol)
         node = st.Isol[i]
         rt = try
-            bisection(PolyType(p), Float64(node.a), Float64(node.b))
+            fzero(PolyType(p), node.a, node.b)
         catch err
-            fzero(PolyType(p), big(node.a), big(node.b))
+            fzero(PolyType(p), big(node.a), big(node.b), maxevals=100)
         end
         rts[i] = rt
     end
