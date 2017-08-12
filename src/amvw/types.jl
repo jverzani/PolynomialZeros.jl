@@ -152,7 +152,7 @@ vals!{T}(r::ComplexComplexRotator{T}, c::T, s::T) = vals!(r, complex(c, zero(T))
 # POLY -- [p0, p1, p2, ..., pn] (not reversed, same as p.a for Poly type
 # reverse in the init_state
 
-abstract type FactorizationType{T, ShiftType, Pencil, Twisted} end
+@compat abstract type FactorizationType{T, ShiftType, Pencil, Twisted} end
 
 ## SingleShift(:SingleShift) -- Q, D, U, Ut
 ## DoubleShift(:DoubleShift) -- Q, U, V, Ut, Vt, W

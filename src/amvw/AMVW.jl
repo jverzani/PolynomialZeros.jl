@@ -9,8 +9,8 @@ module AMVW
 
 using Compat
 
-using IntervalArithmetic
-Base.eps{T}(::Type{Interval{T}}) = eps(T)
+#using IntervalArithmetic
+#Base.eps{T}(::Type{Interval{T}}) = eps(T)
 
 # package code goes here
 

@@ -1,6 +1,9 @@
 module AGCD
 using Polynomials
 
+using Compat
+import Compat.iszero
+
 ## This provide AGCD.agcd for finding an *approximate* GCD of two polynomials. The most common use in this package
 ## is to reduce a polynomial `p` to a square free polynomial `q=p/gcd(p, p')`.
 

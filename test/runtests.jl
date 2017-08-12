@@ -1,7 +1,8 @@
 using PolynomialZeros
 using Polynomials
 using Base.Test
-
+using Compat
+import Compat: iszero
 
 include("test-amvw.jl")
 include("test-multroot.jl")
