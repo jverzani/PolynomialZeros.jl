@@ -1,7 +1,8 @@
 ## Types
 
 ## A container for our counters
-mutable struct AMVW_Counter
+#mutable struct AMVW_Counte
+type AMVW_Counter
     zero_index::Int
     start_index::Int
     stop_index::Int
@@ -37,7 +38,8 @@ idx!(r::Rotator, i::Int) = r.i = i
 #but might be of help later if twisting is approached. Shouldn't effect speed, but does mean 3N storage (Q, Ct, B)
 #so may be
 #
-mutable struct RealRotator{T} <: Rotator{T}
+#mutable struct RealRotator{T} <: Rotator{T}
+type RealRotator{T} <: Rotator{T}
 c::T
 s::T
 i::Int
@@ -66,7 +68,8 @@ end
 ##################################################
 ### Okay, now try with complex C, real s
     
-mutable struct ComplexRealRotator{T} <: Rotator{T}
+#mutable struct ComplexRealRotator{T} <: Rotator{T}
+type ComplexRealRotator{T} <: Rotator{T}    
 c::Complex{T}
 s::T
 i::Int
@@ -109,7 +112,8 @@ end
 ## We use two complex, rather than 3 reals here.
 ## Will be basically the ame storage, as we don't need to include a D, but not quite (12N, not 11N)
     
-mutable struct ComplexComplexRotator{T} <: Rotator{T}
+#mutable struct ComplexComplexRotator{T} <: Rotator{T}
+type ComplexComplexRotator{T} <: Rotator{T}
 c::Complex{T}
 s::Complex{T}
 i::Int
@@ -165,7 +169,8 @@ abstract type FactorizationType{T, ShiftType, Pencil, Twisted} end
 ############### No Pencil, Not Twisted ###################################
 
 ## RDS, no pencil, not twisted
-struct Real_DoubleShift_NoPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Val{:NotTwisted}}
+#struct Real_DoubleShift_NoPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Val{:NotTwisted}
+immutable Real_DoubleShift_NoPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Val{:NotTwisted}}
 
 N::Int
 POLY::Vector{T}
@@ -210,7 +215,8 @@ end
 
 # ComplexReal Double Shift, no pencil, not twisted
 
-mutable struct ComplexReal_SingleShift_NoPencil_NotTwisted{T} <: FactorizationType{T, Val{:SingleShift}, Val{:NoPencil}, Val{:NotTwisted}}
+#mutable struct ComplexReal_SingleShift_NoPencil_NotTwisted{T} <: FactorizationType{T, Val{:SingleShift}, Val{:NoPencil}, Val{:NotTwisted}}
+type ComplexReal_SingleShift_NoPencil_NotTwisted{T} <: FactorizationType{T, Val{:SingleShift}, Val{:NoPencil}, Val{:NotTwisted}}
 
 N::Int
 POLY::Vector{Complex{T}}
@@ -256,7 +262,8 @@ end
 ############## Has Pencil, Not twisted ####################################
 
 ## RDS, no pencil, not twisted
-struct Real_DoubleShift_HasPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:HasPencil}, Val{:NotTwisted}}
+#struct Real_DoubleShift_HasPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:HasPencil}, Val{:NotTwisted}}
+immutable Real_DoubleShift_HasPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:HasPencil}, Val{:NotTwisted}}
 
 N::Int
 POLY::Vector{T}
@@ -307,7 +314,8 @@ end
 
 # ComplexReal Double Shift, has pencil, not twisted
 
-mutable struct ComplexReal_SingleShift_HasPencil_NotTwisted{T} <: FactorizationType{T, Val{:SingleShift}, Val{:HasPencil}, Val{:NotTwisted}}
+#mutable struct ComplexReal_SingleShift_HasPencil_NotTwisted{T} <: FactorizationType{T, Val{:SingleShift}, Val{:HasPencil}, Val{:NotTwisted}}
+type ComplexReal_SingleShift_HasPencil_NotTwisted{T} <: FactorizationType{T, Val{:SingleShift}, Val{:HasPencil}, Val{:NotTwisted}}
 
 N::Int 
 POLY::Vector{Complex{T}}
