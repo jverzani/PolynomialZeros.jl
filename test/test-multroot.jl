@@ -62,11 +62,11 @@ end
     u,v,w,err = AGCD.agcd(p)
     @test degree(v) == n
 
-    # fails
+    # can fails
     n = 6
     p = prod((x-i)^i for i in 1:n)
     u,v,w,err = AGCD.agcd(p)
-    @test degree(v) > n
+    @test degree(v) >= n
 
     # use big
     n = 6
