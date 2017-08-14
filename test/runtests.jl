@@ -96,6 +96,22 @@ end
     fn = x -> x^3 * (x-1) * (x^2 + 1)
     ds = sort(poly_roots(fn, Over.R)) .- sort([1,0])
     @test norm(ds) <= 1e-14
+
+    # test for input
+    poly_roots(x -> x^4 - 1, Over.Q)
+    poly_roots(x -> x^4 - 1//1, Over.Q)
+    @test_throws ArgumentError poly_roots(x -> x^4 - 1.0, Over.Q)
+end
+
+
+
+@testset "Over.Z" begin
+    @test length(poly_roots(x -> (x-1) * (2x-1) * (x^2 + 1), Over.Z)) == 1
+
+    # test for input
+    poly_roots(x -> x^4 - 1, Over.Z)
+    @test_throws MethodError poly_roots(x -> x^4 - 1//1, Over.Z)
+    @test_throws MethodError poly_roots(x -> x^4 - 1.0, Over.Z)
 end
 
 

@@ -3,14 +3,14 @@
 
 ## return function name for special case: identity, solve_linear, solve_quadratic, solve_cubic
 function special_case{S}(ps::Vector{S}, T)
-    n = length(ps)
-    if n == 2
+    deg = length(ps) - 1  # [p0, p1, ..., pn]
+    if deg == 1
         method_exists(solve_linear, (Vector{S}, Type{T}))    && return solve_linear
-    elseif n == 3
+    elseif deg == 2
         method_exists(solve_quadratic, (Vector{S}, Type{T})) && return solve_quadratic
-    elseif n == 4
+    elseif deg == 3
         method_exists(solve_cubic, (Vector{S}, Type{T}))     && return solve_cubic
-#    elseif n == 6
+#    elseif deg == 5
 #        method_exists(solve_quintic, (Vector{S}, Type{T}))   && return solve_quintic
     end
 

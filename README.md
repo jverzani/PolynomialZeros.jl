@@ -11,11 +11,11 @@ Windows:
 
 This package provides the method `poly_roots` to find roots of
 univariate polynomial functions over the complex numbers, the real
-numbers, the rationals, the integers, and $Z_p$. (A "root" is the name
-for a "zero" of a polynomial.) The package takes advantage of many
+numbers, the rationals, the integers, or Z_p. (A "root" is the name
+for a "zero" of a polynomial function.) The package takes advantage of
 other root-finding packages for polynomials within Julia (e.g.,
 `PolynomialRoots` for numeric solutions over the complex numbers and
-`PolynomialFactors` or exact solutions over the intergers).
+`PolynomialFactors` for exact solutions over the rationals and integers).
 
 The basic interface is
 
@@ -23,7 +23,11 @@ The basic interface is
 poly_roots(f, domain)
 ```
 
-Where `f` is in `Poly{T}` (from the `Polynomials.jl` package) or can be converted into `Poly{T}`. The domain is specified by `Over.C`, `Over.R`, `Over.Q`, `Over.Z`, or `over.Zp{p}`. Not all polynomials will have such a factorization.
+The polynomial, `f`, is specified through a function, a vector of
+coefficients (`p0, p1, ..., pn]`), or as a `Poly{T}` object, from the
+the `Polynomials.jl` package. The domain is specified by `Over.C` (the
+default), `Over.R`, `Over.Q`, `Over.Z`, or `over.Zp{p}`, with variants
+for specifying an underlying type.
 
 
 Examples:
@@ -60,7 +64,7 @@ julia> poly_roots(x -> x^4 - 1, Over.Zp{5}) # uses `PolynomialFactors.jl`
  2
 ```
 
-Domains can also have their types specified. For example, to solve
+Domains can also have their underlying types specified. For example, to solve
 over the `BigFloat` type, we have:
 
 ```julia
@@ -72,14 +76,17 @@ poly_roots(x -> x^4 - 1, Over.CC{BigFloat})  # `CC{BigFloat}` not just `C`
 
 This package uses:
 
-* The `PolynomialRoots` package to find roots over the
-complex numbers. The `Roots` package can also be used.
+* The `PolynomialRoots` package to find roots over the complex
+numbers. The `Roots` package can also be used. As well, an
+implementation of the
+[AMVW](http://epubs.siam.org/doi/abs/10.1137/140983434) algorithm can
+be used.
 
 * The `PolynomialFactors` package to return roots over the
-rationals, integers, and integers module a prime.
+rationals, integers, and integers modulo a prime.
 
 * As well, it provides an algorithm to find the real
-roots of polynomials that originally was in the `Roots` package.
+roots of polynomials that was originally found in the `Roots` package.
 
 
 The main motivation for this package was to move the polynomial
@@ -99,14 +106,15 @@ The package also provides
   polynomials `p` and `q` over `Poly{Float64}`. (This is used to
   reduce a polynomial over the reals to a square-free
   polynomial. Square-free polynomials are needed for the
-  algorithm used. For can become unreliable for 15-or-more-degree polynomials.)
+  algorithm used. This algorithm can become unreliable for degree 15
+  or more polynomials.)
 
 * `PolynomialZeros.MultRoot.multroot` for finding roots of `p` in
   `Poly{Float64}` over `Complex{Float64}` which has some advantage if
   `p` has high multiplicities. The `roots` function from the
   `Polynomials` package will find all the roots of a polynomial. Its
   performance degrades when the polynomial has high
-  multiplicities. The multroot function is provided to handle this
+  multiplicities. The `multroot` function is provided to handle this
   case a bit better. The function follows algorithms due to Zeng,
   "Computing multiple roots of inexact polynomials", Math. Comp. 74
   (2005), 869-903. 

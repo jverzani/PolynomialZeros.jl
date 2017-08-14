@@ -75,7 +75,7 @@ using .MultRoot
     - `over.Zp{p}` for solving over the finite field `ZZ_p`, p a
       prime.  Only unique roots are returned (no multiplicities).
 
-Returns an array of zeros, possibly empty. May throw error if polynomial type is inappropriate for specified domain.
+Returns an array of zeros, possibly empty. May throw error if polynomial type is inappropriate for specified domain. For an unspecified domain, the domain may reflect the element type of `f(0)`.
 
 Examples:
 
@@ -96,10 +96,14 @@ poly_roots(p, Over.Zp{7})  # 3
     
 """
 function poly_roots(f; method=:PolynomialRoots)
-    T = eltype(float(zero(e_type(f))))
-    poly_roots(f, Over.CC{T}; method=method) # default
+    poly_roots(f, Over.C; method=method) # default
 end
-poly_roots(f, ::Type{Over.C}; method=:PolynomialRoots) = poly_roots(f, Over.CC{Float64}; method=method)
+
+function poly_roots(f, ::Type{Over.C}; method=:PolynomialRoots)
+    T = promote_type(Float64, e_type(f))
+    poly_roots(f, Over.CC{T}, method=method)
+end
+
 function poly_roots{T<:AbstractFloat}(f, U::Type{Over.CC{T}}; method=:PolynomialRoots)
 
 
@@ -125,12 +129,12 @@ end
 
 
 function poly_roots(f, ::Type{Over.R};square_free=false)
-    T = eltype(float(zero(e_type(f))))
+    T = promote_type(Float64, e_type(f))
     poly_roots(f, Over.RR{T}, square_free=square_free)
 end
 function poly_roots{T <: Real}(f, U::Type{Over.RR{T}}; square_free::Bool=false)
 
-    ps = convert(Vector{T},poly_coeffs(f))
+    ps = convert(Vector{T}, poly_coeffs(f))
     fn = special_case(ps, U)
     
     if fn == identity
@@ -142,14 +146,26 @@ function poly_roots{T <: Real}(f, U::Type{Over.RR{T}}; square_free::Bool=false)
 end
 # should I do an alias? Best to add if requestd, keeping name space light for now
 ## realroots(f; kwargs...) = poly_roots(f, Over.R; kwargs...) #real_roots?
-                                                                                      
+
+_rational_T{T}(::Type{Rational{T}}) = T
+_rational_T{T}(::Rational{T}) =T
 function poly_roots(f, ::Type{Over.Q})
-    T = e_type(f)
-    poly_roots(f, Over.QQ{T})
-end
-function poly_roots{T <: Integer}(f, U::Type{Over.QQ{T}})
+    T = promote_type(Int, e_type(f))
     
-    p = as_poly(Rational{T}, f)
+    if T <: Integer
+        return poly_roots(f, Over.QQ{T})
+    elseif T <: Rational
+        S = promote_type(_rational_T(T), Int)
+        p = as_poly(T, f)
+        return poly_roots(f, Over.QQ{S})
+    else
+        throw(ArgumentError("Use Over.Q for polynomials with integer or rational coefficients"))
+    end
+end
+
+
+function poly_roots{T <: Integer}(f, U::Type{Over.QQ{T}})
+    p = as_poly(Rational{T}, f)    
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
         d = PolynomialFactors.factor(p)
@@ -161,6 +177,7 @@ function poly_roots{T <: Integer}(f, U::Type{Over.QQ{T}})
     
 end
 
+## ----
 
 function poly_roots(f, ::Type{Over.Z})
     T = eltype(as_poly(f)(0))
