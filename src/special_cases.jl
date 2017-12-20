@@ -2,7 +2,7 @@
 ## linear, quadratic, cubic
 
 ## return function name for special case: identity, solve_linear, solve_quadratic, solve_cubic
-function special_case{S}(ps::Vector{S}, T)
+function special_case(ps::Vector{S}, T) where {S}
     deg = length(ps) - 1  # [p0, p1, ..., pn]
     if deg == 1
         method_exists(solve_linear, (Vector{S}, Type{T}))    && return solve_linear
@@ -24,30 +24,30 @@ end
 ## Linear
 check_linear(ps) = length(ps) == 2 || throw(DomainError())
 ## Over C
-function solve_linear{T <: Real, S}(ps::Vector{Complex{T}}, ::Type{Over.CC{S}})
+function solve_linear(ps::Vector{Complex{T}}, ::Type{Over.CC{S}}) where {T <: Real, S}
     check_linear(ps)
     Complex{S}[-ps[1] / ps[2]]
 end
-solve_linear{T <: Real, S}(ps::Vector{T}, ::Type{Over.CC{S}}) = solve_linear(complex.(ps,zeros(T,2)), Over.CC{S})
+solve_linear(ps::Vector{T}, ::Type{Over.CC{S}}) where {T <: Real, S} = solve_linear(complex.(ps,zeros(T,2)), Over.CC{S})
 
 ## Over R
-function solve_linear{T <: Real, S}(ps::Vector{T}, ::Type{Over.RR{S}})
+function solve_linear(ps::Vector{T}, ::Type{Over.RR{S}}) where {T <: Real, S}
     check_linear(ps)
     S[-ps[1] / ps[2]]
 end
 
 ## Over Q
-function solve_linear{T <: Integer, S}(ps::Vector{T}, ::Type{Over.QQ{S}})
+function solve_linear(ps::Vector{T}, ::Type{Over.QQ{S}}) where {T <: Integer, S}
     check_linear(ps)
     Rational{S}[-ps[1] // ps[2]]
 end
-function solve_linear{T <: Integer, S}(ps::Vector{Rational{T}}, ::Type{Over.QQ{S}})
+function solve_linear(ps::Vector{Rational{T}}, ::Type{Over.QQ{S}}) where {T <: Integer, S}
     check_linear(ps)
     Rational{S}[-ps[1] // ps[2]]
 end
 
 ## Over Z
-function solve_linear{T <: Integer, S}(ps::Vector{T}, ::Type{Over.ZZ{S}})
+function solve_linear(ps::Vector{T}, ::Type{Over.ZZ{S}}) where {T <: Integer, S}
     check_linear(ps)
     q,r = divrem(-ps[1], ps[2])
     if r == 0
@@ -65,7 +65,7 @@ check_quadratic(ps) = length(ps) == 3 || throw(DomainError())
 ##  https://people.eecs.berkeley.edu/~wkahan/Qdrtcs.pdf
 
 ## solve ax^2 - 2bx + c
-function qdrtc{T <: Real}(a::T, b::T, c::T)
+function qdrtc(a::T, b::T, c::T) where {T <: Real}
     # z1, z2 roots of ax^2 - 2bx + c
     d = discr(a,b,c)  # (b^2 - a*c), as 2 removes 4
     
@@ -80,7 +80,7 @@ function qdrtc{T <: Real}(a::T, b::T, c::T)
 end
 
 ## more work could be done here.
-function discr{T}(a::T,b::T,c::T)
+function discr(a::T,b::T,c::T) where {T}
     pie = 3.0 # depends on 53 or 64 bit...
     d = b*b - a*c
     e = b*b + a*c
@@ -96,7 +96,7 @@ function discr{T}(a::T,b::T,c::T)
 end
 
 
-function solve_quadratic{T <: Real, S}(ps::Vector{T}, U::Type{Over.CC{S}})
+function solve_quadratic(ps::Vector{T}, U::Type{Over.CC{S}}) where {T <: Real, S}
     check_quadratic(ps)
     iszero(ps[1]) && return vcat(zero(S), solve_linear(ps[2:end], U))
     
@@ -105,7 +105,7 @@ function solve_quadratic{T <: Real, S}(ps::Vector{T}, U::Type{Over.CC{S}})
     Complex{S}[complex(r1, i1), complex(r2, i2)]
 end
 
-function solve_quadratic{T <: Real, S}(ps::Vector{T}, U::Type{Over.RR{S}})
+function solve_quadratic(ps::Vector{T}, U::Type{Over.RR{S}}) where {T <: Real, S}
     check_quadratic(ps)
     iszero(ps[1]) && return vcat(zero(S), solve_linear(ps[2:end], U))
     
@@ -123,7 +123,7 @@ end
 check_cubic(ps) = length(ps) == 4 || throw(DomainError())
 
 # C -> C
-function solve_cubic{T <: Real, S}(ps::Vector{Complex{T}}, U::Type{Over.CC{S}})
+function solve_cubic(ps::Vector{Complex{T}}, U::Type{Over.CC{S}}) where {T <: Real, S}
     check_cubic(ps)
     iszero(ps[1]) && return solve_quadratic(ps[2:end], U)
 
@@ -131,7 +131,7 @@ function solve_cubic{T <: Real, S}(ps::Vector{Complex{T}}, U::Type{Over.CC{S}})
 end
 
 # R -> C XXX Can be faster
-function solve_cubic{T <: Real, S}(ps::Vector{T}, U::Type{Over.CC{S}})
+function solve_cubic(ps::Vector{T}, U::Type{Over.CC{S}}) where {T <: Real, S}
     check_cubic(ps)
     iszero(ps[1]) && return solve_quadratic(ps[2:end], U)
 
@@ -140,7 +140,7 @@ end
 
 
 # R -> R
-function solve_cubic{T <: Real, S}(ps::Vector{T}, U::Type{Over.RR{S}})
+function solve_cubic(ps::Vector{T}, U::Type{Over.RR{S}}) where {T <: Real, S}
     check_cubic(ps)
     iszero(ps[1]) && return solve_quadratic(ps[2:end], U)
 
@@ -192,7 +192,7 @@ end
 
 check_quintic(ps::Vector) = length(ps) == 6 || throw(DomainError())
 # C -> C
-function solve_quintic{T <: Real, S}(ps::Vector{Complex{T}}, U::Type{Over.CC{S}})
+function solve_quintic(ps::Vector{Complex{T}}, U::Type{Over.CC{S}}) where {T <: Real, S}
     check_quintic(ps)
 
     PolynomialRoots.roots5(ps)

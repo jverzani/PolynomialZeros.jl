@@ -8,7 +8,7 @@
 ## * absorb the left side -- absorb_Ut
 ## * chase the right side down until it is absorbed -- absorb_U
 ##
-function bulge_step{T, St, P}(state::FactorizationType{T, St, P, Val{:NotTwisted}})
+function bulge_step(state::FactorizationType{T, St, P, Val{:NotTwisted}}) where {T, St, P}
     create_bulge(state)
     absorb_Ut(state)
     absorb_U(state)
@@ -20,7 +20,7 @@ end
 ## Pencil or Twisted don't matter as they come out in diagonalblock.
 
 # ## The bulge is created by  (A-rho1) * (A - rho2) * e_1 where rho1 and rho2 are eigenvalue or random
-function create_bulge{T, P, Tw}(state::FactorizationType{T, Val{:DoubleShift}, P, Tw})
+function create_bulge(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}) where {T, P, Tw}
 
     if mod(state.ctrs.it_count, 15) == 0
         
@@ -93,7 +93,7 @@ function create_bulge{T, P, Tw}(state::FactorizationType{T, Val{:DoubleShift}, P
 end
 
 
-function create_bulge{T, P, Tw}(state::FactorizationType{T, Val{:SingleShift}, P, Tw})
+function create_bulge(state::FactorizationType{T, Val{:SingleShift}, P, Tw}) where {T, P, Tw}
 
     if mod(state.ctrs.it_count, 15) == 0
         
@@ -137,14 +137,14 @@ end
 
 
 # This depends on Q, D, and possible sigma but not Pencil case
-function absorb_Ut{T, P}(state::FactorizationType{T, Val{:SingleShift}, P, Val{:NotTwisted}})
+function absorb_Ut(state::FactorizationType{T, Val{:SingleShift}, P, Val{:NotTwisted}}) where {T, P}
     i = idx(state.Ut)
     alpha = fuse(state.Ut, state.Q[i], Val{:right})
     cascade(state.Q, state.D, alpha, i, state.ctrs.stop_index) # cascade move Di into D through Qs
 end
 
 # This depends on Q
-function absorb_Ut{T, P}(state::FactorizationType{T, Val{:DoubleShift}, P, Val{:NotTwisted}})
+function absorb_Ut(state::FactorizationType{T, Val{:DoubleShift}, P, Val{:NotTwisted}}) where {T, P}
 
     copy!(state.Ut, state.U'); copy!(state.Vt, state.V')
     
@@ -179,7 +179,7 @@ end
 ## * unitary move (which doesn't change U, it just moves it from left to right)
 ## * fuse
 ## This just pushes work to passthrough_triu and passthroug_Q
-function absorb_U{T, St, P}(state::FactorizationType{T, St, P, Val{:NotTwisted}})
+function absorb_U(state::FactorizationType{T, St, P, Val{:NotTwisted}}) where {T, St, P}
     flag = false
     while !flag
         passthrough_triu(state)
@@ -197,14 +197,14 @@ end
 passthrough_triu(state::FactorizationType) = passthrough_triu(state, Val{:right}) # right is default
 
 ## singleshift case has only one rotator to pass through
-function passthrough_triu{T, P, Tw}(state::FactorizationType{T, Val{:SingleShift}, P, Tw}, dir)
+function passthrough_triu(state::FactorizationType{T, Val{:SingleShift}, P, Tw}, dir) where {T, P, Tw}
     ## can't do case of i <= state.ctrs.tr; as we don't have Ct[i] * B[i] = I due to pulling out of alpha.
     _passthrough_triu(state.U, state, dir)
 end
 
 
 ## For double shift we have V then U
-function passthrough_triu{T, P, Tw}(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}, ::Type{Val{:right}})
+function passthrough_triu(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}, ::Type{Val{:right}}) where {T, P, Tw}
     i = idx(state.V)
     if i <= state.ctrs.tr
         copy!(state.Vt, state.V)
@@ -222,7 +222,7 @@ function passthrough_triu{T, P, Tw}(state::FactorizationType{T, Val{:DoubleShift
     end
 end
 
-function passthrough_triu{T, Tw}(state::FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Tw}, ::Type{Val{:left}})
+function passthrough_triu(state::FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Tw}, ::Type{Val{:left}}) where {T, Tw}
     _passthrough_triu(state.U, state, Val{:left})    
     _passthrough_triu(state.V, state, Val{:left})
 end
@@ -230,7 +230,7 @@ end
 ## lower level work of passing a rotatator through the triangular part
 ## There may be one (no pencil) or two such to pass through
 ## pass a specified U through
-function _passthrough_triu{T, St, Tw}(U::Rotator, state::FactorizationType{T, St, Val{:NoPencil}, Tw}, ::Type{Val{:right}})
+function _passthrough_triu(U::Rotator, state::FactorizationType{T, St, Val{:NoPencil}, Tw}, ::Type{Val{:right}}) where {T, St, Tw}
 
     i = idx(U)
     turnover(state.B[i], state.B[i+1], U, Val{:right})
@@ -240,7 +240,7 @@ function _passthrough_triu{T, St, Tw}(U::Rotator, state::FactorizationType{T, St
     
 end
 
-function _passthrough_triu{T, St, Tw}(U::Rotator, state::FactorizationType{T, St, Val{:NoPencil}, Tw}, ::Type{Val{:left}})
+function _passthrough_triu(U::Rotator, state::FactorizationType{T, St, Val{:NoPencil}, Tw}, ::Type{Val{:left}}) where {T, St, Tw}
 
     i = idx(U)
 
@@ -252,7 +252,7 @@ function _passthrough_triu{T, St, Tw}(U::Rotator, state::FactorizationType{T, St
     
 end
 
-function _passthrough_triu{T, St, Tw}(U::Rotator, state::FactorizationType{T, St, Val{:HasPencil}, Tw}, ::Type{Val{:right}})
+function _passthrough_triu(U::Rotator, state::FactorizationType{T, St, Val{:HasPencil}, Tw}, ::Type{Val{:right}}) where {T, St, Tw}
 
     i = idx(U)
 
@@ -273,7 +273,7 @@ function _passthrough_triu{T, St, Tw}(U::Rotator, state::FactorizationType{T, St
 
 end
 
-function _passthrough_triu{T, St, Tw}(U::Rotator, state::FactorizationType{T, St, Val{:HasPencil}, Tw}, ::Type{Val{:left}})
+function _passthrough_triu(U::Rotator, state::FactorizationType{T, St, Val{:HasPencil}, Tw}, ::Type{Val{:left}}) where {T, St, Tw}
 
     i = idx(U)
 
@@ -303,7 +303,7 @@ end
 ##
 ## If we update indices and use a unitary transform, return false (not absorbed)
 ## else return true (was absorved)
-function passthrough_Q{T,P}(state::FactorizationType{T, Val{:SingleShift}, P, Val{:NotTwisted}})
+function passthrough_Q(state::FactorizationType{T, Val{:SingleShift}, P, Val{:NotTwisted}}) where {T,P}
     
     i = idx(state.U)
 
@@ -320,7 +320,7 @@ end
 
 
 
-function passthrough_Q{T,P}(state::FactorizationType{T, Val{:DoubleShift}, P, Val{:NotTwisted}})
+function passthrough_Q(state::FactorizationType{T, Val{:DoubleShift}, P, Val{:NotTwisted}}) where {T,P}
     
     i = idx(state.U); j = i + 1
     

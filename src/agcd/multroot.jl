@@ -219,7 +219,7 @@ end
 ## Different interfaces
 
 ## can pass in vector too
-multroot{T <: Real}(p::Vector{T}; kwargs...) = multroot(Poly(p); kwargs...)
+multroot(p::Vector{T}; kwargs...) where {T <: Real} = multroot(Poly(p); kwargs...)
 
 ## Can pass in function
 function multroot(f::Function; kwargs...)

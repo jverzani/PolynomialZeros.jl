@@ -8,6 +8,7 @@ module AMVW
 
 
 using Compat
+import Compat: adjoint
 
 #using IntervalArithmetic
 #Base.eps{T}(::Type{Interval{T}}) = eps(T)

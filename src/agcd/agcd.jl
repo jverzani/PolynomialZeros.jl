@@ -31,7 +31,7 @@ _monic(p::Vector) = p./p[end]
 _monic!(p::Vector) = p ./= p[end]
 _float(p::Vector) = float(p)
 
-function _polymul{T,S}(p::Vector{T}, q::Vector{S})
+function _polymul(p::Vector{T}, q::Vector{S}) where {T,S}
     R = promote_type(T,S)
     n = length(p)-1
     m = length(q)-1
@@ -44,7 +44,7 @@ function _polymul{T,S}(p::Vector{T}, q::Vector{S})
     end
     a
 end
-function _polyder{T}(p::Vector{T})
+function _polyder(p::Vector{T}) where {T}
     S = eltype(float(p[1]))
     n = length(p)
     a2 = Vector{S}(n-1)
@@ -62,13 +62,13 @@ function cauchy_matrix_size(p::Vector, k::Integer)
     n = length(p)
     (n + k - 1, k)
 end
-function cauchy_matrix!{T}(M, p::Vector{T}, k::Integer)
+function cauchy_matrix!(M, p::Vector{T}, k::Integer) where {T}
     n = length(p)
     for i in 1:k
-        M[(1:n) + (i-1), i] = p
+        M[(1:n) .+ (i-1), i] = p
     end
 end
-function cauchy_matrix{T}(p::Vector{T}, k::Integer)
+function cauchy_matrix(p::Vector{T}, k::Integer) where {T}
     n,m = cauchy_matrix_size(p, k)
     out = zeros(T, n, m)
     cauchy_matrix!(out, p, k)
@@ -111,7 +111,7 @@ function sylvester_matrix!(M, p::Vector, q::Vector, k::Int=0)
     
 end
 
-function sylvester_matrix{T,S}(p::Vector{T}, q::Vector{S}, k::Int=0)
+function sylvester_matrix(p::Vector{T}, q::Vector{S}, k::Int=0) where {T,S}
     R = promote_type(T,S)
     M = zeros(R, sylvester_matrix_size(p,q,k)...)
     sylvester_matrix!(M, p, q, k)
@@ -140,7 +140,7 @@ function JF_size(u, v, w)
     
 end
     
-function JF!{T}(M, u::Vector{T}, v, w)
+function JF!(M, u::Vector{T}, v, w) where {T}
     m, k, j = _degree(u), _degree(v), _degree(w)
     n, l = m + k, m + j
 
@@ -154,16 +154,16 @@ function JF!{T}(M, u::Vector{T}, v, w)
 
     
     M[1,1] = one(T)
-    cauchy_matrix!(view(M, 1 + (1:ai), 1:aj),        v, m + 1)
-    cauchy_matrix!(view(M, 1 + (1:bi), aj + (1:bj)), u, k + 1)
+    cauchy_matrix!(view(M, 1 .+ (1:ai), 1:aj),        v, m + 1)
+    cauchy_matrix!(view(M, 1 .+ (1:bi), aj .+ (1:bj)), u, k + 1)
 #    M[1 + (1:ci), aj + bj + (1:cj)] = zeros(T, n+1, m+1-j)
-    cauchy_matrix!(view(M, 1 + ai + (1:di), 1:dj),   w, m + 1)
+    cauchy_matrix!(view(M, 1 + ai .+ (1:di), 1:dj),   w, m + 1)
 #    M[1 + bi + (1:ei), dj + (1:ej)] = zeros(T, m + 1, n + 1 - j)
-    cauchy_matrix!(view(M, 1 + ci + (1:fi), dj + ej + (1:fj)), u, j + 1)
+    cauchy_matrix!(view(M, 1 + ci .+ (1:fi), dj + ej .+ (1:fj)), u, j + 1)
 
     
 end
-function JF{U,V,W}(u::Vector{U}, v::Vector{V}, w::Vector{W})
+function JF(u::Vector{U}, v::Vector{V}, w::Vector{W}) where {U,V,W}
     R = promote_type(U,V, W)
     M = zeros(R, JF_size(u, v, w)...)
     JF!(M, u, v, w)
@@ -176,10 +176,10 @@ end
 ## we return if sigma < tol; delta \appro 0;
 ## how to @assert that sigma_2 > sigma_1?
 ## claim is that this could be improved were A recycled
-function lemma24{T}(p::Vector{T}, q::Vector{T}, k::Int, θ=1e-8) 
+function lemma24(p::Vector{T}, q::Vector{T}, k::Int, θ=1e-8) where {T} 
 
     A = sylvester_matrix(p, q , k)
-    const MAXSTEPS = 100
+    MAXSTEPS = 100
     Q,R = Base.qr(A)
 
     ## if R is rank deficient, we can have issues solving R' \ x below
@@ -228,7 +228,7 @@ end
 
 
 # eqn (12) to get weights
-function _weights{T}(p::Vector{T},q)
+function _weights(p::Vector{T},q) where {T}
     n, m = length(p), length(q)
     wts = ones(T, 1 + n + m)
     for (i,pj) in enumerate(p)
@@ -242,7 +242,7 @@ end
 
 # reduce residual by Gauss-Newton algorithm
 # updates u,v,w; returns residual error and flag for convergence
-function reduce_residual!{T}(u,v,w, p::Vector{T}, q, wts, ρ)
+function reduce_residual!(u,v,w, p::Vector{T}, q, wts, ρ) where {T}
     m, n, l = map(_degree, (u, v, w))
     # preallocate
     A = zeros(T, JF_size(u, v, w)...)
@@ -250,7 +250,7 @@ function reduce_residual!{T}(u,v,w, p::Vector{T}, q, wts, ρ)
     inc = zeros(T, m + n + l + 3) #weighted_least_square(A, b, wts)
 
     ρm_1, ρm = Inf, Inf
-    const MAXSTEPS = 20
+    MAXSTEPS = 20
     ctr = 0
     flag = :not_converged
 
@@ -290,7 +290,7 @@ function weighted_least_square(A, b, w)
 end
     
 function weighted_least_square!(M, A, b, w)
-    W = diagm(w)
+    W = @compat diagm(0 => w)
     M[:] = (W * A) \ (W * b)
 end
 
@@ -304,8 +304,8 @@ function Fmp!(b, p,q,u,v,w)
         b[i] = v
     end
     offset = 1 + length(p)
-    for (i,v) in enumerate(_polymul(u,w) .- q)
-        b[offset + i] = v
+    for (i,v1) in enumerate(_polymul(u,w) .- q)
+        b[offset + i] = v1
     end
 end
 
@@ -338,7 +338,7 @@ end
 ## ----------------------
 
 ## some diagnostic functions
-function sylvester_matrix_singular_values{T}(p0::Vector{T}, q0::Vector=_polyder(p0))
+function sylvester_matrix_singular_values(p0::Vector{T}, q0::Vector=_polyder(p0)) where {T}
     p, q = _float(p0), _float(q0)
     p, q = _monic(p), _monic(q)
     n, m = _degree(p), _degree(q)
@@ -380,7 +380,7 @@ Default parameter choice comes from Zeng
 
 Can we engineer around the minimum?
 """
-function reveal_rank{T}(p::Vector{T}, q::Vector{T}, θ=1e-8, ρ=1e-10)
+function reveal_rank(p::Vector{T}, q::Vector{T}, θ=1e-8, ρ=1e-10) where {T}
     # we check k until 1) lemma24 is small *and* we can refine residual error
     n,m = length(p), length(q)  # assume n >= m
 
@@ -476,10 +476,10 @@ of `u`, `v`, and `w` are returned by `rank_k_agcd`.
 
 
 """
-function agcd{T <: Number,S <: Number}(p::Vector{T}, q::Vector{S}=_polyder(p);
+function agcd(p::Vector{T}, q::Vector{S}=_polyder(p);
                                        θ = 1e-8,  
                                        ρ = 1e-10   
-              )
+              ) where {T <: Number,S <: Number}
 
     n, m = length(p), length(q)
     if m > n
@@ -504,13 +504,13 @@ end
 # for polys, we precondition
 
 monic(p) = p/p[end]
-_float{T <: AbstractFloat}(p::Poly{T}) = p
-_float{T}(p::Poly{T}) = Poly(float.(p.a), p.var)
+_float(p::Poly{T}) where {T <: AbstractFloat} = p
+_float(p::Poly{T}) where {T} = Poly(float.(p.a), p.var)
 
 ## --------------
 ## preconditioning code
 ## taken from https://who.rocq.inria.fr/Jan.Elias/pdf/je_masterthesis.pdf
-function geometric_mean{T}(a::Vector{T})::T
+function geometric_mean(a::Vector{T})::T where {T}
     b = filter(!iszero, a)
     n = length(b)
     prod(abs(u)^(one(T)/n) for u in b)  
@@ -528,7 +528,7 @@ end
 
 ## find alpha, gamma that minimize ratio of max coefficients to min coefficients, for getting zeros
 ## 1.12 writes this as a linear programming problem, we just ...
-function precondition{T}(p::Poly{T}, q::Poly)
+function precondition(p::Poly{T}, q::Poly) where {T}
 
     m = ratio(p,q)
 
@@ -560,9 +560,9 @@ end
 
 ## -----------------
 
-function agcd{T <: Number,S <: Number}(p0::Poly{T}, q0::Poly{S}=polyder(p0);
-                                   θ = 1e-8,  
-                                   ρ = 1e-10)
+function agcd(p0::Poly{T}, q0::Poly{S}=polyder(p0);
+              θ = 1e-8,  
+              ρ = 1e-10) where {T <: Number,S <: Number}
 
     p, q = _float(p0), _float(q0)
     

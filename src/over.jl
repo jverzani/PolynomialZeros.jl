@@ -1,19 +1,23 @@
+"""
+
+Use types in this module to specifiy a domain. 
+
+"""
 module Over
 # use to specify domain
 
-# immutable -> struct
-immutable CC{T} end
-immutable C end
+struct CC{T} end
+struct C end
 
-immutable RR{T} end
-immutable R end
+struct RR{T} end
+struct R end
 
-immutable QQ{T} end
-immutable Q end
+struct QQ{T} end
+struct Q end
 
-immutable ZZ{T} end
-immutable Z end
+struct ZZ{T} end
+struct Z end
 
-immutable Zp{p} end
+struct Zp{p} end
 
 end

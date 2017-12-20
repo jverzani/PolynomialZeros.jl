@@ -1,13 +1,20 @@
 __precompile__()
 module PolynomialZeros
 
+
+
 using Polynomials
 import PolynomialRoots
 
 using PolynomialFactors
-import Roots: fzeros
+import Roots: fzeros, bisection64
 
 using Compat
+
+if VERSION >= v"0.7.0-"
+    using Printf
+end
+
 
 
 export poly_roots
@@ -103,7 +110,7 @@ function poly_roots(f, ::Type{Over.C}; method=:PolynomialRoots)
     poly_roots(f, Over.CC{T}, method=method)
 end
 
-function poly_roots{T<:AbstractFloat}(f, U::Type{Over.CC{T}}; method=:PolynomialRoots)
+function poly_roots(f, U::Type{Over.CC{T}}; method=:PolynomialRoots) where {T<:AbstractFloat}
 
 
     ps = poly_coeffs(T, f)
@@ -131,7 +138,7 @@ function poly_roots(f, ::Type{Over.R};square_free=false)
     T = promote_type(Float64, e_type(f))
     poly_roots(f, Over.RR{T}, square_free=square_free)
 end
-function poly_roots{T <: Real}(f, U::Type{Over.RR{T}}; square_free::Bool=false)
+function poly_roots(f, U::Type{Over.RR{T}}; square_free::Bool=false) where {T <: Real}
 
     ps = convert(Vector{T}, poly_coeffs(f))
     fn = special_case(ps, U)
@@ -146,8 +153,8 @@ end
 # should I do an alias? Best to add if requestd, keeping name space light for now
 ## realroots(f; kwargs...) = poly_roots(f, Over.R; kwargs...) #real_roots?
 
-_rational_T{T}(::Type{Rational{T}}) = T
-_rational_T{T}(::Rational{T}) =T
+_rational_T(::Type{Rational{T}}) where {T}= T
+_rational_T(::Rational{T}) where {T} =T
 function poly_roots(f, ::Type{Over.Q})
     T = promote_type(Int, e_type(f))
     
@@ -162,13 +169,22 @@ function poly_roots(f, ::Type{Over.Q})
     end
 end
 
+# for v0.6 -> v0.7 transition on filter with Dicts
 
-function poly_roots{T <: Integer}(f, U::Type{Over.QQ{T}})
+function _compat_filter(f, d::Dict)
+    if VERSION >= v"0.7-"
+        filter(f, d)
+    else
+        filter((x,y) -> f((x,y)), d)
+    end
+end
+
+function poly_roots(f, U::Type{Over.QQ{T}}) where {T <: Integer}
     p = as_poly(Rational{T}, f)    
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
         d = PolynomialFactors.factor(p)
-        d = filter((k,v) -> degree(k) == 1, d)
+        d = _compat_filter(kv -> degree(kv[1]) == 1, d) ## is this broken
         vcat([-p[0]//p[1] for p in keys(d)]...)
     else
         fn(p.a, U)
@@ -183,15 +199,15 @@ function poly_roots(f, ::Type{Over.Z})
     poly_roots(f, Over.ZZ{T})
 end
 
-function poly_roots{T <: Integer}(f, U::Type{Over.ZZ{T}})
+function poly_roots(f, U::Type{Over.ZZ{T}}) where {T <: Integer}
 
     p = as_poly(T, f)
 
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
         d = PolynomialFactors.factor(p)
-        d = filter((k,v) -> degree(k) == 1, d)
-        d = filter((k,v) -> rem(k[0], k[1]) == 0, d)
+        d = _compat_filter(kv -> degree(kv[1]) == 1, d)
+        d = _compat_filter(kv -> rem(kv[1][0], kv[1][1]) == 0, d)
         vcat([-div(p[0], p[1]) for (p,v) in d]...)
     else
         fn(p.a, U)
@@ -200,7 +216,7 @@ end
 
 
 
-function poly_roots{q}(f, U::Type{Over.Zp{q}})
+function poly_roots(f, U::Type{Over.Zp{q}}) where {q}
     # error if q is not prime?
     
     p = as_poly(e_type(f), f)
@@ -208,7 +224,7 @@ function poly_roots{q}(f, U::Type{Over.Zp{q}})
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
         fs = PolynomialFactors.factormod(p,q)
-        ls = filter((r,n) -> degree(r) == 1, fs)
+        ls = _compat_filter(kv -> degree(kv[1]) == 1, fs)        
         [mod(-r[0] * invmod(r[1],q), q) for (r,n) in ls]
     else
         fn(p.a, U)
@@ -216,10 +232,6 @@ function poly_roots{q}(f, U::Type{Over.Zp{q}})
     
 end
 
-
-## handle roots deprecations
-#fzeros(p) = poly_roots(p, Over.R, square_free=false)
-#Polynomials.roots(p::Vector) = poly_roots(p, Over.C, method=:roots)
 
 
 end # module
