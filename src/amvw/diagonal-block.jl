@@ -112,15 +112,15 @@ end
 
 
 # allows treatment of complex and real case at same time
-getD{T, P, Tw}(state::FactorizationType{T, Val{:SingleShift}, P, Tw}, k) = state.D[k]
-getD{T, P, Tw}(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}, k) = one(T)
-getD1{T, P, Tw}(state::FactorizationType{T, Val{:SingleShift}, P, Tw}, k) = state.D1[k]
-getD1{T, P, Tw}(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}, k) = one(T)
+getD(state::FactorizationType{T, Val{:SingleShift}, P, Tw}, k) where {T, P, Tw} = state.D[k]
+getD(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}, k) where {T, P, Tw} = one(T)
+getD1(state::FactorizationType{T, Val{:SingleShift}, P, Tw}, k) where {T, P, Tw} = state.D1[k]
+getD1(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}, k) where {T, P, Tw} = one(T)
 
 
-function diagonal_block{T, St, Tw}(state::FactorizationType{T, St, Val{:NoPencil}, Tw}, k)
+function diagonal_block(state::FactorizationType{T, St, Val{:NoPencil}, Tw}, k) where {T, St, Tw}
 #    k >= 2 && k <= state.N || error("$k not in [2,n]")
-    const ZERO = St == Val{:SingleShift} ? zero(Complex{T}) : zero(T)
+    ZERO = St == Val{:SingleShift} ? zero(Complex{T}) : zero(T)
     if k == 2
         state.R[1,1] = getD(state,1) * Rjk(state.Ct, state.B, 1, 1)
         state.R[1,2] = getD(state,1) * Rjk(state.Ct, state.B, 1, 2)
@@ -150,7 +150,7 @@ end
 #  v23/W33 - W23*v22/(W22*W33)  v24/W44 - W34*v23/(W33*W44) + v22*(W23*W34/(W33*W44) - W24/W44)/W22
 #                      v33/W33                                          v34/W44 - W34*v33/(W33*W44)
 #                            0                                                              v44/W44
-function diagonal_block{T, St, Tw}(state::FactorizationType{T, St, Val{:HasPencil}, Tw}, k)
+function diagonal_block(state::FactorizationType{T, St, Val{:HasPencil}, Tw}, k) where {T, St, Tw}
 
     k >= 2 && k <= state.N || error("$k not in [2,n]")
 
@@ -194,7 +194,7 @@ end
 ## This allows us to handle twisting separately
 ## Pencil doesn't effect this code, that is the R part
 ## This is just matrix multiplication written out.
-function compute_QR{T,St, P}(state::FactorizationType{T, St, P, Val{:NotTwisted}}, R, k)
+function compute_QR(state::FactorizationType{T, St, P, Val{:NotTwisted}}, R, k) where {T,St, P}
     A = state.A
     Q = state.Q
 
@@ -242,7 +242,7 @@ function compute_QR{T,St, P}(state::FactorizationType{T, St, P, Val{:NotTwisted}
 end
 
 ##
-function compute_QR{T,St, P}(state::FactorizationType{T, St, P, Val{:IsTwisted}}, R, k)
+function compute_QR(state::FactorizationType{T, St, P, Val{:IsTwisted}}, R, k) where {T,St, P}
     println("XXX need to do this ....")
 end
 
@@ -254,7 +254,7 @@ end
 
 # [a11 - l a12; a21 a22] -> l^2 -2 * (tr(A)/2) l + det(A)
 # so we use b = tr(A)/2 for qdrtc routing
-function eigen_values{T,P, Tw}(state::FactorizationType{T,Val{:DoubleShift}, P, Tw})
+function eigen_values(state::FactorizationType{T,Val{:DoubleShift}, P, Tw}) where {T,P, Tw}
 
     a11, a12 = state.A[1,1], state.A[1,2]
     a21, a22 = state.A[2,1], state.A[2,2]
@@ -267,7 +267,7 @@ function eigen_values{T,P, Tw}(state::FactorizationType{T,Val{:DoubleShift}, P, 
 end    
 
 # from `modified_quadratic.f90`
-function eigen_values{T,P, Tw}(state::FactorizationType{T,Val{:SingleShift}, P, Tw})
+function eigen_values(state::FactorizationType{T,Val{:SingleShift}, P, Tw}) where {T,P, Tw}
 
     a11, a12 = state.A[1,1], state.A[1,2]
     a21, a22 = state.A[2,1], state.A[2,2]

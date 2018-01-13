@@ -2,7 +2,7 @@
 ##################################################
 ## Deflation
 ## when a Q[k] matrix become a "D" matrix, we deflate. This is checked by the sine term being basically 0.
-function check_deflation{T,St,P,Tw}(state::FactorizationType{T,St,P, Tw}, tol = eps(T))
+function check_deflation(state::FactorizationType{T,St,P, Tw}, tol = eps(T)) where {T,St,P,Tw}
     for k in state.ctrs.stop_index:-1:state.ctrs.start_index
         if abs(vals(state.Q[k])[2]) <= tol
             deflate(state, k)
@@ -13,7 +13,7 @@ end
 
 # deflate a term
 # turn on `show_status` to view sequence
-function deflate{T,P,Tw}(state::FactorizationType{T,Val{:DoubleShift},P, Tw}, k)
+function deflate(state::FactorizationType{T,Val{:DoubleShift},P, Tw}, k) where {T,P,Tw}
 
     # make a D matrix for Q. C could be +/- 1
     c,s = vals(state.Q[k])
@@ -32,7 +32,7 @@ end
 # deflate a term
 # deflation for ComplexReal is different, as
 # we replace Qi with I and move diagonal part into D
-function deflate{T, P}(state::FactorizationType{T,Val{:SingleShift},P, Val{:NotTwisted}}, k)
+function deflate(state::FactorizationType{T,Val{:SingleShift},P, Val{:NotTwisted}}, k) where {T, P}
 
     # when we deflate here we want to leave Q[k] = I and
 

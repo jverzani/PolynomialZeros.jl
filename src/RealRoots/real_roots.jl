@@ -1,5 +1,10 @@
 module RealRoots
 
+if VERSION >= v"0.7.0-"
+    using Printf
+end
+
+
 
 ## Find real roots of a polynomial using a DesCartes Method
 ##
@@ -24,25 +29,23 @@ module RealRoots
 ## 
 
 
-using Compat
 using Polynomials
 import Roots: fzero
 using ..AGCD
 
 # for interface
-type PolyType{T}
+struct PolyType{T}
     p::Vector{T}
 end
-@compat (p::PolyType)(x) = poly_eval(p.p, x)
+(p::PolyType)(x) = poly_eval(p.p, x)
 
 
-degree{T}(p::Vector{T}) = findlast(p) - 1
+Polynomials.degree(p::Vector{T}) where {T} = findlast(p) - 1
 
 
 ## Interval with [a,b], N
 ## N is for Newton-Test
-#mutable struct Intervalab{T,S}
-type Intervalab{T,S}
+mutable struct Intervalab{T,S}
     a::T
     b::S
     N::Int
@@ -53,23 +56,22 @@ midpoint(I::Intervalab) = I.a + (0.5) * width(I)
 
 
 ## how we store the state of our algorithm to find zero in [0,1]
-#@compat struct State{T}
-immutable State{T}
+struct State{T}
     Internal::Vector{Intervalab{T,T}}                    # DesBound > 1
     Isol::Vector{Intervalab{T,T}}                        # DesBound == 1
     Unresolved::Vector{Intervalab{T,T}}
     p::Vector{T}
 end
 
-State{T}(p::Vector{T}) = State(Intervalab{T,T}[], Intervalab{T,T}[], Intervalab{T,T}[], p)
-@compat (st::State)(x) = poly_eval(st.p, x)
+State(p::Vector{T}) where {T} = State(Intervalab{T,T}[], Intervalab{T,T}[], Intervalab{T,T}[], p)
+(st::State)(x) = poly_eval(st.p, x)
 
 # polys over vectors mutating first
 
 # poly is [p_0, p_1, ..., p_n] where there may be zeros in last terms
 
 # p + q
-function poly_add!{T, S}(p::Vector{T}, q::Vector{S})
+function poly_add!(p::Vector{T}, q::Vector{S}) where {T, S}
     n,m = length(p), length(q)
     l = min(n, m)
     for i in 1:l
@@ -81,10 +83,10 @@ function poly_add!{T, S}(p::Vector{T}, q::Vector{S})
 end
 
 # p-q
-poly_sub!{T, S}(p::Vector{T}, q::Vector{S}) = poly_add(p, -q)
+poly_sub!(p::Vector{T}, q::Vector{S}) where {T, S} = poly_add(p, -q)
 
 # may be more than one way
-function poly_mul!{T, S}(p1::Vector{T}, p2::Vector{S})
+function poly_mul!(p1::Vector{T}, p2::Vector{S}) where {T, S}
     R = promote_type(T,S)
 
     n = length(p1)
@@ -102,7 +104,7 @@ function poly_mul!{T, S}(p1::Vector{T}, p2::Vector{S})
 end
 
 
-function poly_deriv!{T}(p::Vector{T})
+function poly_deriv!(p::Vector{T}) where {T}
     for i = 1:length(p)-1
         p[i] = i * p[i+1]
     end
@@ -111,7 +113,7 @@ function poly_deriv!{T}(p::Vector{T})
 end
 
 
-function poly_eval{T, S}(p::Vector{T}, x::S)
+function poly_eval(p::Vector{T}, x::S) where {T, S}
     R = promote_type(T,S)
 
     y = convert(R, p[end])
@@ -124,7 +126,7 @@ end
 
 
 " `p(x + λ)`: Translate polynomial left by λ "
-function poly_translate!{T}(p::Vector{T}, lambda=1)
+function poly_translate!(p::Vector{T}, lambda=1) where {T}
     p1 = copy(p)
     p[1] = poly_eval(p1, lambda)
     m = one(T)
@@ -148,10 +150,10 @@ function poly_scale!(p, lambda)
         p[i] *= lambda^(i-1)
     end
 end
-Hλ{T}(p::Vector{T}, λ=one(T)) = poly_scale!(copy(p), λ)
+Hλ(p::Vector{T}, λ=one(T)) where {T} = poly_scale!(copy(p), λ)
 
 "q = p(-x)"
-function poly_flip!{T}(p::Vector{T})
+function poly_flip!(p::Vector{T}) where {T}
     for i in 2:2:length(p)
         p[i] = -p[i]
     end
@@ -160,7 +162,7 @@ end
 
 ## Upper bound on size of real roots that is tighter than cauchy
 ## titan.princeton.edu/papers/claire/hertz-etal-99.ps
-function upperbound{T}(p::Vector{T})::T
+function upperbound(p::Vector{T})::T where {T}
     p = p[findfirst(p):end]
     descartes_bound(p) == 0 && return zero(T)
 
@@ -179,7 +181,7 @@ function upperbound{T}(p::Vector{T})::T
     (-b + sqrt(b^2 - 4a*c))/2
 end
 
-function lowerbound{T <: Real}(p::Vector{T})::T
+function lowerbound(p::Vector{T})::T where {T <: Real}
     p = p[findfirst(p):end]
     
     poly_flip!(p)
@@ -195,7 +197,7 @@ end
 ## Descartes Bounds
 
 " Descartes bound on (0,oo). Just count sign changes"
-function descartes_bound{T}(p::Vector{T})
+function descartes_bound(p::Vector{T}) where {T}
     length(p) == 0 && return -1
     cnt, sgn = 0, sign(p[1])
     for i in 2:length(p)
@@ -210,7 +212,7 @@ end
 
 
 # shift polynomial so (a,b) -> (0, oo)
-function translate_ab{T}(p::Vector{T}, a, b)
+function translate_ab(p::Vector{T}, a, b) where {T}
     #    p0 = Tλ(p, a)
     #    p1 = Hλ(p0, b-a)
     #    p2 = Tλ(R(p1),1)
@@ -224,7 +226,7 @@ function translate_ab{T}(p::Vector{T}, a, b)
 end
 
 " Descartes bound on (a, b)"
-descartes_bound_ab{T}(p::Vector{T}, a, b) = descartes_bound(translate_ab(p, a, b))
+descartes_bound_ab(p::Vector{T}, a, b) where {T} = descartes_bound(translate_ab(p, a, b))
 DescartesBound_ab(st, node) = descartes_bound_ab(st.p, node.a, node.b)
 
 ## Tests
@@ -239,7 +241,7 @@ zero_one_test(st::State, node) = DescartesBound_ab(st, node)
 
 # find admissible point
 # XXX improve me
-function find_admissible_point{T}(st::State{T},  I::Intervalab, m=midpoint(I), Ni::T=one(T), c::T=one(T))::T
+function find_admissible_point(st::State{T},  I::Intervalab, m=midpoint(I), Ni::T=one(T), c::T=one(T))::T where {T}
     N = ceil(Int, c * degree(st.p)/2)
     ep = min(m-I.a, I.b - m) / (4*Ni)
     mis = [m + i/N * ep for i in -N:N]
@@ -261,7 +263,7 @@ end
 # find an admissible point that can be used to split interval. Needs to have all
 # coefficients not straddle 0
 # return (logical, two intervals)
-function split_interval{T}(st::State{T},I::Intervalab,  m=midpoint(I), Ni=one(T), c=one(T))
+function split_interval(st::State{T},I::Intervalab,  m=midpoint(I), Ni=one(T), c=one(T)) where {T}
     N = ceil(Int, c * degree(st.p)/2)
     ep = min(1, width(I)) / (16*Ni)
     mis = T[m + i/N * ep for i in -N:N]
@@ -310,7 +312,7 @@ end
 ## split interval
 ## adds to intervals if successful
 ## adds node to Unresolved if not
-function linear_step{T}(st::State{T}, node)
+function linear_step(st::State{T}, node) where {T}
     succ, I1, I2 = split_interval(st, node)
 
     if succ
@@ -327,8 +329,8 @@ end
 
 ## return (true, I), (false, node)
 ## I will be smaller interval containing all roots in node
-function newton_test{T}(st::State{T}, node)
-    const NMAX = 1024  # 2147483648 = 2^31
+function newton_test(st::State{T}, node) where {T}
+    NMAX = 1024  # 2147483648 = 2^31
     (node.N > NMAX) && return (false, node) 
     (zero_one_test(st, node) in (0,1)) && return(false, node)
 
@@ -367,7 +369,7 @@ end
 
 ## Add successors to I
 ## We have
-function addSucc{T}(st::State{T}, node)
+function addSucc(st::State{T}, node) where {T}
 
     val, I = newton_test(st, node)
 
@@ -387,7 +389,7 @@ end
 
 ## m, M should bound the roots
 ## essentially algorithm 4
-function ANewDsc{T <: Real}(p::Vector{T}, m = lowerbound(p), M=upperbound(p))
+function ANewDsc(p::Vector{T}, m = lowerbound(p), M=upperbound(p)) where {T <: Real}
 
     st = State(p)
 
@@ -429,7 +431,7 @@ end
 # populate `Isol`
 # p must not have any roots with even degree. (e.g. no (x-c)^(2k) exists as a factor for any c,k
 # assumed square free (at least no roots of even multiplicity)
-function isolate_roots{T <: Real}(p::Vector{T}, m, M)
+function isolate_roots(p::Vector{T}, m, M) where {T <: Real}
 
 #    try
     st = ANewDsc(p, m, M)
@@ -447,28 +449,6 @@ function isolate_roots{T <: Real}(p::Vector{T}, m, M)
         
 end
 
-# non-allocating bisection method
-function bisection(f, a::Float64, b::Float64)
-
-    sign(f(a)) * sign(f(b)) < 0 || return NaN
-
-
-    m = Roots._middle(a,b)
-
-    fa = sign(f(a)); fb = sign(f(b))
-    
-    while a < m < b
-        fm = sign(f(m))
-        iszero(fm) && return(m)
-        
-        if fa * fm < 0
-            b,fb=m,fm
-        else
-            a,fa=m,fm
-        end
-    end
-    return m
-end
 
 
 """
@@ -484,8 +464,8 @@ Returns real roots of a polynomial presented via its coefficients `[p_0, p_1, ..
 same real roots as `p`, however in practice the approximate `gcd` can be off.
 
 """
-real_roots{T <: Real}(p::Poly{T}, args...; kwargs...) = real_roots(p.a, args...; kwargs...)
-function real_roots{T <: Real}(p::Vector{T}, m = lowerbound(p), M=upperbound(p); square_free::Bool=false)
+real_roots(p::Poly{T}, args...; kwargs...) where {T <: Real} = real_roots(p.a, args...; kwargs...)
+function real_roots(p::Vector{T}, m = lowerbound(p), M=upperbound(p); square_free::Bool=false) where {T <: Real}
 
     # deflate zero
     nzroots = 0

@@ -14,7 +14,7 @@
 
   XXX seems faster to just return r, then not
 """
-function givensrot{T <: Real}(a::T,b::T)
+function givensrot(a::T,b::T) where {T <: Real}
     iszero(b) && return (sign(a) * one(T), zero(T), abs(a))
     iszero(a) && return(zero(T), -sign(b) * one(T), abs(b))
 
@@ -35,11 +35,11 @@ end
 #
 # XXX: Could hand write this if needed, here we just use `givens` with a flip
 # to get what we want, a real s part, not s part
-function givensrot{T <: Real}(a::Complex{T},b::Complex{T})
+function givensrot(a::Complex{T},b::Complex{T}) where {T <: Real}
     G, r = givens(b, a, 1, 2)
     G.s, -G.c, r
 end
-givensrot{T <: Real}(a::Complex{T},b::T) = givensrot(a, complex(b, zero(T)))
+givensrot(a::Complex{T},b::T) where {T <: Real} = givensrot(a, complex(b, zero(T)))
 
 
 ####   Operations on [,[ terms
@@ -51,12 +51,12 @@ givensrot{T <: Real}(a::Complex{T},b::T) = givensrot(a, complex(b, zero(T)))
 ##   [       [
 ##
 ## this is `dflip`
-function dflip{T}(a::RealRotator{T}, d=one(T))
+function dflip(a::RealRotator{T}, d=one(T)) where {T}
     a.s = sign(d)*a.s
 end
 
 # get d from rotator which is RR(1,0) or RR(-1, 0)
-function getd{T}(a::RealRotator{T})
+function getd(a::RealRotator{T}) where {T}
     c, s = vals(a)
     norm(s) <= 4eps(T) || error("a is not a diagonal rotator")
     sign(c)
@@ -71,7 +71,7 @@ end
    D  --> D
 U           V
 """
-function Dflip{T}(r::ComplexComplexRotator{T}, d::ComplexComplexRotator{T})
+function Dflip(r::ComplexComplexRotator{T}, d::ComplexComplexRotator{T}) where {T}
     !is_diagonal(d) && error("d must be diagonal rotator")
 
     # D is fixed,
@@ -82,7 +82,7 @@ end
 ##   U --> U Da
 ## D           Da
 ## (not the reverse!)
-function Dflip{T}(d::ComplexRealRotator{T}, r::ComplexRealRotator{T})
+function Dflip(d::ComplexRealRotator{T}, r::ComplexRealRotator{T}) where {T}
 #    !is_diagonal(d) && error("d must be diagonal rotator")
 
     alpha = d.c
@@ -118,7 +118,7 @@ end
 ## we output by rotating by alpha.
 ## return alpha so a*b = f(ab) * [alpha 0; 0 conj(alpha)]
 ## for left with have uv -> (u') Di
-function fuse{T}(a::ComplexRealRotator{T}, b::ComplexRealRotator{T},::Type{Val{:left}})
+function fuse(a::ComplexRealRotator{T}, b::ComplexRealRotator{T},::Type{Val{:left}}) where {T}
     #    idx(a) == idx(b) || error("can't fuse")
     u = a.c * b.c - conj(a.s) * b.s
     v = conj(a.c) * b.s + a.s * b.c
@@ -132,7 +132,7 @@ function fuse{T}(a::ComplexRealRotator{T}, b::ComplexRealRotator{T},::Type{Val{:
 end
 
 # for right we have uv -> (v') Di
-function fuse{T}(a::ComplexRealRotator{T}, b::ComplexRealRotator{T}, ::Type{Val{:right}})
+function fuse(a::ComplexRealRotator{T}, b::ComplexRealRotator{T}, ::Type{Val{:right}}) where {T}
 #    idx(a) == idx(b) || error("can't fuse")
     u = a.c * b.c - conj(a.s) * b.s
     v = conj(a.c) * b.s + a.s * b.c
@@ -149,9 +149,9 @@ end
 
 ## Fuse for general rotation
 ## We have two functions as it seems a bit faster
-fuse{T}(a::Rotator{T}, b::Rotator{T}, dir, d) = fuse(a,b,dir)
+fuse(a::Rotator{T}, b::Rotator{T}, dir, d) where {T} = fuse(a,b,dir)
 
-function fuse{T}(a::Rotator{T}, b::Rotator{T},::Type{Val{:left}})
+function fuse(a::Rotator{T}, b::Rotator{T},::Type{Val{:left}}) where {T}
     #    idx(a) == idx(b) || error("can't fuse")
     u = a.c * b.c - conj(a.s) * b.s
     a.s = conj(a.c) * b.s + a.s * b.c
@@ -159,7 +159,7 @@ function fuse{T}(a::Rotator{T}, b::Rotator{T},::Type{Val{:left}})
 
     one(T)
 end
-function fuse{T}(a::Rotator{T}, b::Rotator{T}, ::Type{Val{:right}})
+function fuse(a::Rotator{T}, b::Rotator{T}, ::Type{Val{:right}}) where {T}
 #    idx(a) == idx(b) || error("can't fuse")
     u = a.c * b.c - conj(a.s) * b.s
     b.s = conj(a.c) * b.s + a.s * b.c
@@ -180,7 +180,7 @@ end
 # so we make use of alpha and beta, which isn't otherwise needed
 # could streamline, but doesn't seem to incur an expense
 
-function _turnover{T}(Q1::Rotator{T}, Q2::Rotator{T}, Q3::Rotator{T})    
+function _turnover(Q1::Rotator{T}, Q2::Rotator{T}, Q3::Rotator{T}) where {T}    
 #    i,j,k = idx(Q1), idx(Q2), idx(Q3)
 #    (i == k) || error("Need to have a turnover up down up or down up down: have i=$i, j=$j, k=$k")
 #    abs(j-i) == 1 || error("Need to have |i-j| == 1")
@@ -229,7 +229,7 @@ end
 
 
 
-function turnover{T}(Q1::Rotator{T}, Q2::Rotator{T}, Q3::Rotator{T}, ::Type{Val{:right}})
+function turnover(Q1::Rotator{T}, Q2::Rotator{T}, Q3::Rotator{T}, ::Type{Val{:right}}) where {T}
 
     c4,s4,c5,s5,c6,s6 = _turnover(Q1,Q2,Q3)
     vals!(Q3, conj(c4), -s4)
@@ -239,9 +239,9 @@ function turnover{T}(Q1::Rotator{T}, Q2::Rotator{T}, Q3::Rotator{T}, ::Type{Val{
     
 end
 
-turnover{T}(Q1::Rotator{T}, Q2::Rotator{T}, Q3::Rotator{T}) = turnover(Q1, Q2, Q3, Val{:right})
+turnover(Q1::Rotator{T}, Q2::Rotator{T}, Q3::Rotator{T}) where {T} = turnover(Q1, Q2, Q3, Val{:right})
 
-function turnover{T}(Q1::Rotator{T}, Q2::Rotator{T}, Q3::Rotator{T}, ::Type{Val{:left}})
+function turnover(Q1::Rotator{T}, Q2::Rotator{T}, Q3::Rotator{T}, ::Type{Val{:left}}) where {T}
     
     c4,s4,c5,s5,c6,s6 = _turnover(Q1,Q2,Q3)
     vals!(Q2, conj(c4), -s4)
@@ -260,7 +260,7 @@ end
 ## D U -> U' D'
 ## Here D[i] = D[1]
 ## usually call with view(state.d, idx(U):idx(U)+1)
-function passthrough{T}(D, U::ComplexRealRotator{T})
+function passthrough(D, U::ComplexRealRotator{T}) where {T}
     i = idx(U)
     alpha, beta = D[i], D[i+1]
 
@@ -271,7 +271,7 @@ function passthrough{T}(D, U::ComplexRealRotator{T})
     D[i], D[i+1] = beta, alpha
 end
 
-function passthrough{T}(D::ComplexRealRotator{T}, U::ComplexRealRotator{T})
+function passthrough(D::ComplexRealRotator{T}, U::ComplexRealRotator{T}) where {T}
     norm(D.s) <= 1e2*eps(T) || error("D not diagonal")
     alpha, ds = vals(D)
     c,s = vals(U)

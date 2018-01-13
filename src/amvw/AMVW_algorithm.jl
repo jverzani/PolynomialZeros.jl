@@ -2,7 +2,7 @@
 ## Main algorithm of AMV&W
 ## This follows that given in the paper very closely
 ## should trace algorithm better with `verbose`
-function AMVW_algorithm{T,St,P,Tw}(state::FactorizationType{T, St, P, Tw})
+function AMVW_algorithm(state::FactorizationType{T, St, P, Tw}) where {T,St,P,Tw}
 
 
     it_max = 20 * state.N
@@ -83,7 +83,7 @@ end
 ## We have ps = [a0, a1, ..., an]
 ## for QR factorization we need monic (an=1) and then -[a1, a2, ..., an_1, a0, 1]
 ## This adjusts last two terms by a factor (-1)^N
-function basic_decompose{T}(ps::Vector{T})
+function basic_decompose(ps::Vector{T}) where {T}
     #    ps, k = deflate_leading_zeros(ps)  ## ASSUMED
     n = length(ps) - 1
     p0, pN = ps[1], ps[end]
@@ -116,7 +116,7 @@ end
 ## The default, `basic_pencil`, is
 ## vs = [a0, a1, ..., a_{n-1}], ws = [0,0,..., an] (minus signs on vs handled internally)
 ##
-function basic_pencil{T}(ps::Vector{T})
+function basic_pencil(ps::Vector{T}) where {T}
     N = length(ps)-1
     
     qs = zeros(T, N)
@@ -144,13 +144,13 @@ const basic_twist = CMV
 ##     allocations like c + 3n where c covers others.
 ## for complex   1e-5 * N^2 run time (1.25 more)
 ##     allocations like  3n too?
-function amvw{T <: Real}(ps::Vector{T})
+function amvw(ps::Vector{T}) where {T <: Real}
     state = convert(FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Val{:NotTwisted}}, ps)
     init_state(state, basic_decompose)
     state
 end
 
-function amvw{T <: Real}(ps::Vector{Complex{T}})
+function amvw(ps::Vector{Complex{T}}) where {T <: Real}
     state = convert(FactorizationType{T, Val{:SingleShift}, Val{:NoPencil}, Val{:NotTwisted}}, ps)
     init_state(state, basic_decompose)
     state
@@ -158,7 +158,7 @@ end
 
 
 ## decomposition of ps into vs, ws needs to be expanded to work with framework
-function adjust_pencil{T}(vs::Vector{T}, ws::Vector{T})
+function adjust_pencil(vs::Vector{T}, ws::Vector{T}) where {T}
     N = length(vs)
     qs = vcat(ws, -one(T))
     par = iseven(N) ? one(T) : -one(T)
@@ -166,13 +166,13 @@ function adjust_pencil{T}(vs::Vector{T}, ws::Vector{T})
     ps, qs
 end
     
-function amvw_pencil{T <: Real}(ps::Vector{T}, pencil=basic_pencil)
+function amvw_pencil(ps::Vector{T}, pencil=basic_pencil) where {T <: Real}
     state = convert(FactorizationType{T, Val{:DoubleShift}, Val{:HasPencil}, Val{:NotTwisted}}, ps)
     init_state(state, xs -> adjust_pencil(pencil(xs)...))
     state
 end
 
-function amvw_pencil{T <: Real}(ps::Vector{Complex{T}}, pencil=basic_pencil)
+function amvw_pencil(ps::Vector{Complex{T}}, pencil=basic_pencil) where {T <: Real}
     state = convert(FactorizationType{T, Val{:SingleShift}, Val{:HasPencil}, Val{:NotTwisted}}, ps)
     init_state(state, xs -> adjust_pencil(pencil(xs)...))
     state
@@ -180,11 +180,11 @@ end
 
 
 
-function amvw_twist{T}(ps::Vector{T}, twist=basic_twist)
+function amvw_twist(ps::Vector{T}, twist=basic_twist) where {T}
     " XXX .... XXX "
 end
 
-function amvw_pencil_twist{T}(ps::Vector{T}, pencil=basic_pencil, twist=basic_twist)
+function amvw_pencil_twist(ps::Vector{T}, pencil=basic_pencil, twist=basic_twist) where {T}
     " XXX .... XXX "
 end
 
@@ -214,7 +214,7 @@ References:
 
         
 """    
-function poly_roots{T}(ps::Vector{T}; pencil=nothing, twist=nothing, verbose=false)
+function poly_roots(ps::Vector{T}; pencil=nothing, twist=nothing, verbose=false) where {T}
     # deflate 0s
     ps, K = deflate_leading_zeros(ps)
 

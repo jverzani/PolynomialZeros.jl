@@ -11,8 +11,8 @@ it can be evaluated on the `Polynomial` monomial `x`.
 as_poly(f::Poly) = f
 as_poly(T, f::Poly) = convert(Poly{T}, f)
 
-as_poly{T}(xs::Vector{T}) = Poly(xs)
-as_poly{T}(S::T, xs::Vector) = Poly(convert(Vector{S},xs))
+as_poly(xs::Vector{T})  where {T}= Poly(xs)
+as_poly(S::T, xs::Vector) where {T} = Poly(convert(Vector{S},xs))
 
 ## Try to convert a callable object into a polynomial, `Poly{T}`. `T` can be specified, or guessed from calling `f(0)`.
 function as_poly(f)
@@ -41,14 +41,14 @@ end
 Find coefficients of polynomial expressed as Poly, Callable object, or values [a0,a1, ..., an]
 
 """
-poly_coeffs{T}(ps::Vector{T}) = ps
-poly_coeffs{T}(p::Poly{T}) = coeffs(p)
+poly_coeffs(ps::Vector{T}) where {T} = ps
+poly_coeffs(p::Poly{T}) where {T} = coeffs(p)
 poly_coeffs(f) = poly_coeffs(as_poly(f))
 poly_coeffs(T, f) = convert(Vector{T}, poly_coeffs(f))
 
 " Type of polynomial "
-e_type{T}(p::Poly{T}) = T
-e_type{T}(ps::Vector{T}) = T
+e_type(p::Poly{T}) where {T} = T
+e_type(ps::Vector{T}) where {T} = T
 e_type(p) =  eltype(p(0))
 
 
@@ -63,36 +63,5 @@ monic
 monic(p::Poly) = p[degree(p)] != 0 ? Poly(p.a * inv(p[degree(p)]), p.var) : p
 
 
-
-
-## replace with more robust method, but don't want to load Roots here
-function _bisection_method(f, a, b)
-    u,v = float(a), float(b)
-    if u > v
-        u,v = v,u
-    end
-    T = eltype(u)
-    tol = 4*eps(T)
-
-    fu, fv =  f(u), f(v)
-    sign(fu) * sign(fv) > 0 && throw(DomainError) # not a bracket
-    
-    w = u + (v-u) * 0.5
-    ctr = 1
-    while norm(v - u) > tol
-        fw = f(w)
-
-        fw  == zero(T) && return w
-
-        if sign(fu) * sign(fw) < 1
-            u,v,fu,fv = u,w,fu,fw
-        else
-            u,v,fu,fv = w,v,fw,fv
-        end
-        w = u + (v-u) * 0.5
-        ctr = ctr + 1; ctr > 100 && return w
-    end
-    w
-end
-
-
+# non-allocating bisection method
+bisection(f, a::Real, b::Real) = Roots.bisection64(f, promote(float(a), b)...)
