@@ -103,7 +103,7 @@ Base.one(::Type{ComplexRealRotator{T}}) where {T} = ComplexRealRotator(complex(o
 function _ones(S::Type{ComplexRealRotator{T}}, N) where {T} 
     ZERO = zero(T)
     ONE = one(T)
-    [RealRotator(ONE,ZERO,0) for i in 1:N]
+    [ComplexRealRotator(complex(ONE,ZERO),ZERO,0) for i in 1:N]
 end
 
 
