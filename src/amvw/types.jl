@@ -41,6 +41,8 @@ mutable struct RealRotator{T} <: Rotator{T}
 c::T
 s::T
 i::Int
+RealRotator(c::T, s::T, i::Int) where {T} = new{T}(c,s,i)
+RealRotator{T}() where {T} = new()
 end
 
 function adjoint(r::RealRotator)
@@ -49,8 +51,13 @@ end
 
 
 Base.one(::Type{RealRotator{T}}) where {T} = RealRotator(one(T), zero(T), 0)
-#Base.ones(S::Type{RealRotator{T}}, N) where {T} = [one(S) for i in 1:N]
-_ones(S::Type{RealRotator{T}}, N) where {T} = [one(S) for i in 1:N]
+
+function _ones(S::Type{RealRotator{T}}, N) where {T} 
+#    ZERO = zero(T)
+#    ONE = one(T)
+#    [RealRotator(ONE,ZERO,0) for i in 1:N]
+[RealRotator{T}() for i in 1:N]
+end
 
 ## set values
 function vals!(r::RealRotator, c::T, s::T) where {T}
@@ -93,7 +100,11 @@ vals!(r::ComplexRealRotator{T}, c::T, s::T) where {T} = vals!(r, complex(c, zero
 
 Base.one(::Type{ComplexRealRotator{T}}) where {T} = ComplexRealRotator(complex(one(T), zero(T)), zero(T), 0)
 #Base.ones(S::Type{ComplexRealRotator{T}}, N) where {T} = [one(S) for i in 1:N]
-_ones(S::Type{ComplexRealRotator{T}}, N) where {T} = [one(S) for i in 1:N]
+function _ones(S::Type{ComplexRealRotator{T}}, N) where {T} 
+    ZERO = zero(T)
+    ONE = one(T)
+    [RealRotator(ONE,ZERO,0) for i in 1:N]
+end
 
 
 Base.copy(a::ComplexRealRotator) = ComplexRealRotator(a.c, a.s, a.i)
