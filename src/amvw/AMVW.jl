@@ -5,10 +5,9 @@
 ## which (presumably) has found its way into the eiscor code base and released under the MIT license
 
 module AMVW
+using LinearAlgebra
+import Base: adjoint
 
-
-using Compat
-import Compat: adjoint
 
 #using IntervalArithmetic
 #Base.eps{T}(::Type{Interval{T}}) = eps(T)

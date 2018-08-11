@@ -1,4 +1,3 @@
-__precompile__()
 module PolynomialZeros
 
 
@@ -7,14 +6,13 @@ using Polynomials
 import PolynomialRoots
 
 using PolynomialFactors
-import Roots: fzeros, bisection64
+import Roots: bisection64
 
-using Compat
 
-if VERSION >= v"0.7.0-"
-    using Printf
-end
+using AbstractAlgebra
+const AA = AbstractAlgebra
 
+using Printf
 
 
 export poly_roots
@@ -171,21 +169,21 @@ end
 
 # for v0.6 -> v0.7 transition on filter with Dicts
 
-function _compat_filter(f, d::Dict)
-    if VERSION >= v"0.7-"
-        filter(f, d)
-    else
-        filter((x,y) -> f((x,y)), d)
-    end
-end
-
 function poly_roots(f, U::Type{Over.QQ{T}}) where {T <: Integer}
-    p = as_poly(Rational{T}, f)    
+    p = as_poly(Rational{T}, f)
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
-        d = PolynomialFactors.factor(p)
-        d = _compat_filter(kv -> degree(kv[1]) == 1, d) ## is this broken
-        vcat([-p[0]//p[1] for p in keys(d)]...)
+        ps = coeffs(p)
+        l = lcm(denominator.(ps))
+        qs = numerator.(l * ps)
+        d = PolynomialFactors.poly_factor(qs)
+        d = filter(kv -> AA.degree(kv[1]) == 1, d) ## is this broken
+        rts = Rational{T}[]
+        for k in keys(d)
+            p0 = k(0); p1 = k(1) - p0
+            push!(rts, -p0//p1)
+        end
+        rts
     else
         fn(p.a, U)
     end
@@ -205,10 +203,16 @@ function poly_roots(f, U::Type{Over.ZZ{T}}) where {T <: Integer}
 
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
-        d = PolynomialFactors.factor(p)
-        d = _compat_filter(kv -> degree(kv[1]) == 1, d)
-        d = _compat_filter(kv -> rem(kv[1][0], kv[1][1]) == 0, d)
-        vcat([-div(p[0], p[1]) for (p,v) in d]...)
+        d = PolynomialFactors.poly_factor(coeffs(p))
+        d = filter(kv -> AA.degree(kv[1]) == 1, d)
+        rts = T[]
+        for (k,v) in d
+            x1, x0= k(1)-k(0), k(0)
+            if iszero(rem(x0, x1))
+                push!(rts, div(x0, x1))
+            end
+        end
+        rts
     else
         fn(p.a, U)
     end
@@ -220,12 +224,20 @@ function poly_roots(f, U::Type{Over.Zp{q}}) where {q}
     # error if q is not prime?
     
     p = as_poly(e_type(f), f)
-
+    paa = PolynomialFactors.as_poly(p.a)
+    
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
-        fs = PolynomialFactors.factormod(p,q)
-        ls = _compat_filter(kv -> degree(kv[1]) == 1, fs)        
-        [mod(-r[0] * invmod(r[1],q), q) for (r,n) in ls]
+        fs = PolynomialFactors.factormod(paa,q)
+        ls = filter(kv -> AA.degree(kv[1]) == 1, fs)
+        rts = eltype(p.a)[]
+        for (k,v) in ls
+            x0 = k(0)
+            x1 = k(1) - k(0)
+            u = x0 * inv(x1)
+            push!(rts, PolynomialFactors.value(u))
+        end
+        rts
     else
         fn(p.a, U)
     end

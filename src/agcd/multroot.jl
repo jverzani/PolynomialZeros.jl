@@ -23,7 +23,6 @@ include("../utils.jl")
 ## the multiplicities l and is operationalized in evalG and evalJ from Zeng's paper.   
 
 using Polynomials
-import Polynomials: degree
 using ..AGCD
 monic(p) = p/p[end]
 rcoeffs(p) = reverse(p.a)
@@ -69,7 +68,7 @@ end
 ## l is known multiplicity structure of polynomial p = (x-z1)^l1 * (x-z2)^l2 * ... * (x-zn)^ln
 ## Algorithm I, p17
 function pejroot(p::Poly, z0::Vector, l::Vector{Int};
-                 wts::Union{Vector, Void}=nothing, # weight vector
+                 wts::Union{Vector, Nothing}=nothing, # weight vector
                  tol = 1e-8,
                  maxsteps = 100
                       )
@@ -155,9 +154,9 @@ function multroot(p::Poly;
 
                   )
 
-    degree(p) == 0 && error("Degree of `p` must be atleast 1")
+    Polynomials.degree(p) == 0 && error("Degree of `p` must be atleast 1")
     
-    if degree(p) == 1
+    if Polynomials.degree(p) == 1
         return(roots(p), [1])
     end
 
@@ -181,8 +180,8 @@ function multroot(p::Poly;
 
     p0 = u_j
 
-    while degree(p0) > 0
-        if degree(p0) == 1
+    while Polynomials.degree(p0) > 0
+        if Polynomials.degree(p0) == 1
             z = roots(p0)[1]
             tmp, ind = findmin(abs.(zs .- z))
             ls[ind] = ls[ind] + 1

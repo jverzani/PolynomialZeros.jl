@@ -1,8 +1,7 @@
 using PolynomialZeros
 using Polynomials
-using Compat
-import Compat: iszero
-using Compat.Test
+using Test
+using LinearAlgebra
 
 include("test-amvw.jl")
 include("test-multroot.jl")
@@ -163,6 +162,6 @@ end
 
     p = poly([3.0])^5
     @test_throws MethodError poly_roots(p, Over.Z) # p has Float64 coefficients.
-    @test poly_roots(convert(Poly{Int}, p), Over.Z) == [3]
+    @test poly_roots(convert(Poly{Int}, p), Over.Z) == [-3.0]
     
 end

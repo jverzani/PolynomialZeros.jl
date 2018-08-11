@@ -24,7 +24,9 @@ poly_roots(f, domain)
 ```
 
 The polynomial, `f`, is specified through a function, a vector of
-coefficients (`p0, p1, ..., pn]`), or as a `Poly{T}` object, from the
+coefficients (`p0, p1, ..., 
+  
+pn]`), or as a `Poly{T}` object, from the
 the `Polynomials.jl` package. The domain is specified by `Over.C` (the
 default), `Over.R`, `Over.Q`, `Over.Z`, or `over.Zp{p}`, with variants
 for specifying an underlying type.

@@ -1,5 +1,7 @@
 module RealRoots
-
+using Random
+using LinearAlgebra
+import Roots: find_zero, AlefeldPotraShi
 if VERSION >= v"0.7.0-"
     using Printf
 end
@@ -40,7 +42,7 @@ end
 (p::PolyType)(x) = poly_eval(p.p, x)
 
 
-Polynomials.degree(p::Vector{T}) where {T} = findlast(p) - 1
+Polynomials.degree(p::Vector{T}) where {T} = findlast(!iszero,p) - 1
 
 
 ## Interval with [a,b], N
@@ -118,7 +120,7 @@ function poly_eval(p::Vector{T}, x::S) where {T, S}
 
     y = convert(R, p[end])
 
-    for i = (endof(p)-1):-1:1
+    for i = (lastindex(p)-1):-1:1
         y = p[i] + x*y
     end
     return y
@@ -162,11 +164,11 @@ end
 
 ## Upper bound on size of real roots that is tighter than cauchy
 ## titan.princeton.edu/papers/claire/hertz-etal-99.ps
-function upperbound(p::Vector{T})::T where {T}
-    p = p[findfirst(p):end]
+function upperbound(p::Vector{T}) where {T}
+    p = p[findfirst(!iszero, p):end]
     descartes_bound(p) == 0 && return zero(T)
 
-    p = p[findfirst(p):end]
+    p = p[findfirst(!iszero, p):end]
     
     q, d = p/p[end], length(p)-1
     
@@ -181,8 +183,8 @@ function upperbound(p::Vector{T})::T where {T}
     (-b + sqrt(b^2 - 4a*c))/2
 end
 
-function lowerbound(p::Vector{T})::T where {T <: Real}
-    p = p[findfirst(p):end]
+function lowerbound(p::Vector{T}) where {T <: Real}
+    p = p[findfirst(!iszero, p):end]
     
     poly_flip!(p)
     ret = -upperbound(p)
@@ -241,8 +243,8 @@ zero_one_test(st::State, node) = DescartesBound_ab(st, node)
 
 # find admissible point
 # XXX improve me
-function find_admissible_point(st::State{T},  I::Intervalab, m=midpoint(I), Ni::T=one(T), c::T=one(T))::T where {T}
-    N = ceil(Int, c * degree(st.p)/2)
+function find_admissible_point(st::State{T},  I::Intervalab, m=midpoint(I), Ni::T=one(T), c::T=one(T)) where {T}
+    N = ceil(Int, c * Polynomials.degree(st.p)/2)
     ep = min(m-I.a, I.b - m) / (4*Ni)
     mis = [m + i/N * ep for i in -N:N]
     curmin = min(norm(st(I.a)), norm(st(I.b)))/100
@@ -264,7 +266,7 @@ end
 # coefficients not straddle 0
 # return (logical, two intervals)
 function split_interval(st::State{T},I::Intervalab,  m=midpoint(I), Ni=one(T), c=one(T)) where {T}
-    N = ceil(Int, c * degree(st.p)/2)
+    N = ceil(Int, c * Polynomials.degree(st.p)/2)
     ep = min(1, width(I)) / (16*Ni)
     mis = T[m + i/N * ep for i in -N:N]
     mis = filter(m -> m > I.a && m < I.b, mis)
@@ -470,7 +472,7 @@ function real_roots(p::Vector{T}, m = lowerbound(p), M=upperbound(p); square_fre
     # deflate zero
     nzroots = 0
     while iszero(p[1])
-        shift!(p)
+        popfirst!(p)
         nzroots += 1
     end
 
@@ -494,11 +496,8 @@ function real_roots(p::Vector{T}, m = lowerbound(p), M=upperbound(p); square_fre
     rts = zeros(T, length(st.Isol))
     for i in eachindex(st.Isol)
         node = st.Isol[i]
-        rt = try
-            fzero(PolyType(p), node.a, node.b)
-        catch err
-            fzero(PolyType(p), big(node.a), big(node.b), maxevals=100)
-        end
+        rt = find_zero(PolyType(p), (node.a, node.b), AlefeldPotraShi())
+        #find_zero(PolyType(p), big.((node.a, node.b)), AlefeldPotraShi())
         rts[i] = rt
     end
 
