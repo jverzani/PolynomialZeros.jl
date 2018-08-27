@@ -290,7 +290,7 @@ function weighted_least_square(A, b, w)
 end
     
 function weighted_least_square!(M, A, b, w)
-    W = @compat diagm(0 => w)
+    W = diagm(0 => w)
     M[:] = (W * A) \ (W * b)
 end
 
