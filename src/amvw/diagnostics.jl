@@ -1,6 +1,6 @@
 ## Diagonostic code
 ##
-import LinearAlgebra: diagm, full
+import LinearAlgebra: diagm
 
 ## create a rotation matrix
 function rotm(a::T,b, i, N) where {T}
@@ -106,7 +106,7 @@ function compute_R(Cts, Bs, D, N, T)
 end
 
 # Go from efficiently stored state to full matrix
-function full(state::FactorizationType{T, St, Val{:NoPencil}, Val{:NotTwisted}}, what=:A) where {T, St}
+function full_matrix(state::FactorizationType{T, St, Val{:NoPencil}, Val{:NotTwisted}}, what=:A) where {T, St}
     N = state.N
     Q = as_full(state.Q[1],N+1); for i in 2:N Q = Q * as_full(state.Q[i],N+1) end
     D = D_matrix(state)
@@ -122,7 +122,7 @@ function full(state::FactorizationType{T, St, Val{:NoPencil}, Val{:NotTwisted}},
 end
 
 
-function full(state::FactorizationType{T, St, Val{:HasPencil}, Val{:NotTwisted}}, what=:A) where {T, St}
+function full_matrix(state::FactorizationType{T, St, Val{:HasPencil}, Val{:NotTwisted}}, what=:A) where {T, St}
     n = state.N
     
     Q = (prod(as_full.(state.Q, n+1)))[1:n, 1:n]
