@@ -146,8 +146,14 @@ end
 
     # over.C
     ## all methods promote, this just checks for errors
+    for T in [Float64, BigFloat]
+       poly_roots(fn, Over.CC{T}, method=:PolynomialRoots)
+    end
+    for T in [Float64]
+       poly_roots(fn, Over.CC{T}, method=:roots)
+    end
     for T in FTs
-        poly_roots(fn, Over.CC{T})
+        poly_roots(fn, Over.CC{T}, method=:amvw)
     end
     @test_throws MethodError poly_roots(fn, Over.CC{Int})
 

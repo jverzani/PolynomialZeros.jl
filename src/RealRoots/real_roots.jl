@@ -2,9 +2,8 @@ module RealRoots
 using Random
 using LinearAlgebra
 import Roots: find_zero, AlefeldPotraShi
-if VERSION >= v"0.7.0-"
-    using Printf
-end
+using Printf
+
 
 
 
@@ -418,10 +417,10 @@ function ANewDsc(p::Vector{T}, m = lowerbound(p), M=upperbound(p)) where {T <: R
             # this is a bad node!
             warn("Bad node, how did it get here: $node")
         elseif bnd == 0
-            next
+            continue
         elseif bnd == 1
             push!(st.Isol, node)
-            next
+            continue
         else
             addSucc(st, node)
         end

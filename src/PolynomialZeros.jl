@@ -115,14 +115,14 @@ function poly_roots(f, U::Type{Over.CC{T}}; method=:PolynomialRoots) where {T<:A
     fn = special_case(ps, U)
     
     if fn == identity
-        if method == :PolynomialRoots
+        if method == :PolynomialRoots && T <: Union{Float64, BigFloat}
             PolynomialRoots.roots(ps, polish=true)
+        elseif method == :Roots && T <: Float64
+            convert(Vector{Complex{T}}, Polynomials.roots(Poly(ps)))
         elseif (method == :AMVW || method == :amvw)
-                AMVW.poly_roots(ps)
-#        elseif method ==:AMVW_Pencil
-#            AMVW.poly_roots(ps)
-        else # default to Polynomials.roots.
-            convert(Vector{Complex{Float64}}, Polynomials.roots(Poly(ps)))
+            AMVW.poly_roots(ps)
+        else # default to AMVW
+            AMVW.poly_roots(ps)
         end
     else
         fn(ps, U)

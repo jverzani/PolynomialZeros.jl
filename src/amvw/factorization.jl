@@ -71,11 +71,12 @@ function Q_factorization(state::FactorizationType{T, St, P, Tw}) where {T, St, P
     N = state.N
     Q = state.Q
     S = St == Val{:SingleShift} ? Complex{T} : T # type of cosine term in rotator
+    zS, oS,zT,oT = zero(S), one(S), zero(T), one(T)
     for ii = 1:(N-1)
-        vals!(Q[ii], zero(S), one(T))
+        vals!(Q[ii], zS, oT)
         idx!(Q[ii], ii)
     end
-    vals!(Q[N], one(S), zero(T)) #I
+    vals!(Q[N], oS, zT)
     idx!(Q[N], N)
 end
 

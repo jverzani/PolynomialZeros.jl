@@ -1,5 +1,6 @@
 ## Diagonostic code
 ##
+import LinearAlgebra: diagm, full
 
 ## create a rotation matrix
 function rotm(a::T,b, i, N) where {T}
@@ -13,7 +14,7 @@ end
 function as_full(a::Rotator{T}, N::Int) where {T}
     c,s = vals(a)
     i = idx(a)
-    i < N || error("too big")
+    i < N || error("$i >= $N; too big")
     A = Matrix{Complex{T}}(I, N, N)
     A[i:i+1, i:i+1] = [c -conj(s); s conj(c)]
     A
@@ -44,7 +45,7 @@ end
 ## create Full matrix from state object. For diagnostic purposes.
 # we may or may not have a diagonal matrix to keep track or
 D_matrix(state::FactorizationType{T, Val{:SingleShift}, P, Tw}) where {T,P,Tw} = diagm(state.D)
-D_matrix(state::FactorizationType) = I
+D_matrix(state::FactorizationType) = diagm(0 => ones(state.N+1))#I
 
 ## We can compute yt from the decomposition of R into: R = Ct *(B + yt e1) by multiplying on left by e_n+1^T...
 function _compute_yt(Cts, Bs, N, T)
@@ -105,7 +106,7 @@ function compute_R(Cts, Bs, D, N, T)
 end
 
 # Go from efficiently stored state to full matrix
-function Base.full(state::FactorizationType{T, St, Val{:NoPencil}, Val{:NotTwisted}}, what=:A) where {T, St}
+function full(state::FactorizationType{T, St, Val{:NoPencil}, Val{:NotTwisted}}, what=:A) where {T, St}
     N = state.N
     Q = as_full(state.Q[1],N+1); for i in 2:N Q = Q * as_full(state.Q[i],N+1) end
     D = D_matrix(state)
@@ -121,7 +122,7 @@ function Base.full(state::FactorizationType{T, St, Val{:NoPencil}, Val{:NotTwist
 end
 
 
-function Base.full(state::FactorizationType{T, St, Val{:HasPencil}, Val{:NotTwisted}}, what=:A) where {T, St}
+function full(state::FactorizationType{T, St, Val{:HasPencil}, Val{:NotTwisted}}, what=:A) where {T, St}
     n = state.N
     
     Q = (prod(as_full.(state.Q, n+1)))[1:n, 1:n]
