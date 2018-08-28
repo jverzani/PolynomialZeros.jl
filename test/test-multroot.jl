@@ -2,8 +2,7 @@ using PolynomialZeros
 const AGCD = PolynomialZeros.AGCD
 const MultRoot = PolynomialZeros.MultRoot
 using Polynomials
-using Compat
-using Compat.Test
+using Test
 
 
 @testset "agcd routines" begin
