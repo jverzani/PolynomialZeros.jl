@@ -71,6 +71,18 @@ over the `BigFloat` type, we have:
 poly_roots(x -> x^4 - 1, Over.CC{BigFloat})  # `CC{BigFloat}` not just `C`
 ```
 
+There are other methods for `Over.C`. This will use the AMVW method:
+
+```
+julia> poly_roots(x -> x^4 - 1, Over.C, method=:amvw) 
+4-element Array{Complex{Float64},1}:
+ -1.8966567854390553e-17 - 0.9999999999999998im
+ -1.8966567854390553e-17 + 0.9999999999999998im
+     -0.9999999999999999 + 0.0im               
+      1.0000000000000002 + 0.0im 
+```
+
+
 ## Details
 
 
@@ -80,13 +92,13 @@ This package uses:
 numbers. The `Roots` package can also be used. As well, an
 implementation of the
 [AMVW](http://epubs.siam.org/doi/abs/10.1137/140983434) algorithm can
-be used.
+be used. The default seems to be faster and as accurate as the others.
 
 * The `PolynomialFactors` package to return roots over the
 rationals, integers, and integers modulo a prime.
 
 * As well, it provides an algorithm to find the real
-roots of polynomials that was originally found in the `Roots` package.
+roots of polynomials.
 
 
 The main motivation for this package was to move the polynomial

@@ -1,8 +1,7 @@
 using PolynomialZeros
 const AMVW = PolynomialZeros.AMVW
 using Polynomials
-using Compat
-using Compat.Test
+using Test
 
 # transformations
 
@@ -94,7 +93,7 @@ end
     AMVW.vals!(r2, complex(3.0, 2.0), 5.0); AMVW.idx!(r2, 1)
     M = AMVW.as_full(r1,2) * AMVW.as_full(r2, 2)
     alpha = AMVW.fuse(r1, r2, Val{:left})
-    M1 = @compat AMVW.as_full(r1, 2) * diagm(0 => [alpha, conj(alpha)])
+    M1 = AMVW.as_full(r1, 2) * diagm(0 => [alpha, conj(alpha)])
     u = M - M1
     @test maximum(norm.(u)) <= 4eps()
     
@@ -104,7 +103,7 @@ end
     AMVW.vals!(r2, complex(3.0, 2.0), 5.0); AMVW.idx!(r2, 1)
     M = AMVW.as_full(r1,2) * AMVW.as_full(r2, 2)
     alpha = AMVW.fuse(r1, r2, Val{:right})
-    M1 =  @compat AMVW.as_full(r2, 2)  * diagm(0 => [alpha, conj(alpha)])
+    M1 =  AMVW.as_full(r2, 2)  * diagm(0 => [alpha, conj(alpha)])
     u = M - M1
     @test maximum(norm.(u)) <= 4eps()
 
@@ -124,7 +123,7 @@ end
     D = ones(Complex{Float64}, 5)
     Qs = [Q1, Q2, Q3, Q4]
     AMVW.cascade(Qs, D, alpha, 1, 4)
-    M2 = @compat AMVW.as_full(Q2, 5) * AMVW.as_full(Q3, 5) * AMVW.as_full(Q4, 5) * diagm(0 => D)
+    M2 = AMVW.as_full(Q2, 5) * AMVW.as_full(Q3, 5) * AMVW.as_full(Q4, 5) * diagm(0 => D)
     
     u = M1 - M2
     @test maximum(norm.(u)) <= 4eps()
@@ -172,9 +171,9 @@ end
     t1,t2,t3=pi/3,pi/4, pi/5
     cplx(t) = complex(cos(t), sin(t))
     D = [cplx(t) for t in [t1,t2,t3]]
-    M = @compat diagm(0 =>D) * AMVW.as_full(r1, 3)
+    M = diagm(0 =>D) * AMVW.as_full(r1, 3)
     AMVW.passthrough(D, r1)
-    M1 = @compat AMVW.as_full(r1, 3) * diagm(0 => D)
+    M1 = AMVW.as_full(r1, 3) * diagm(0 => D)
     u = M - M1
     @test maximum(norm.(u)) <= 4eps()
     

@@ -60,8 +60,8 @@ rcoeffs(p::Poly) = reverse(coeffs(p))
 """
 monic
 """
-monic(p::Poly) = p[degree(p)] != 0 ? Poly(p.a * inv(p[degree(p)]), p.var) : p
+monic(p::Poly) = p[Polynomials.degree(p)] != 0 ? Poly(p.a * inv(p[Polynomials.degree(p)]), p.var) : p
 
 
-# non-allocating bisection method
+# a robust bisection method
 bisection(f, a::Real, b::Real) = Roots.bisection64(f, promote(float(a), b)...)

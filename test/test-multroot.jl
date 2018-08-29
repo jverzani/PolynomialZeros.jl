@@ -2,8 +2,7 @@ using PolynomialZeros
 const AGCD = PolynomialZeros.AGCD
 const MultRoot = PolynomialZeros.MultRoot
 using Polynomials
-using Compat
-using Compat.Test
+using Test
 
 
 @testset "agcd routines" begin
@@ -48,32 +47,32 @@ end
     
     p = prod(x-i for i in 1:20)
     u,v,w,err = AGCD.agcd(p)
-    @test degree(v) == degree(p)
+    @test Polynomials.degree(v) == Polynomials.degree(p)
 
     p = (x-1)^3
     u,v,w,err = AGCD.agcd(p)
-    @test degree(v) == 1
+    @test Polynomials.degree(v) == 1
 
     p = prod(x-i for i in 1:6)
     u,v,w,err = AGCD.agcd(p)
-    @test degree(v) == degree(p)
+    @test Polynomials.degree(v) == Polynomials.degree(p)
 
     n = 4
     p = prod((x-i)^i for i in 1:n)
     u,v,w,err = AGCD.agcd(p)
-    @test degree(v) == n
+    @test Polynomials.degree(v) == n
 
     # can fails
     n = 6
     p = prod((x-i)^i for i in 1:n)
     u,v,w,err = AGCD.agcd(p)
-    @test degree(v) >= n
+    @test Polynomials.degree(v) >= n
 
     # use big
     n = 6
     p = prod((x-i)^i for i in 1:n)
     u,v,w,err = AGCD.agcd(convert(Poly{BigFloat}, p))
-    @test degree(v) == n
+    @test Polynomials.degree(v) == n
 
     T = Float64
     x = variable(Complex{T})

@@ -5,13 +5,13 @@
 function special_case(ps::Vector{S}, T) where {S}
     deg = length(ps) - 1  # [p0, p1, ..., pn]
     if deg == 1
-        method_exists(solve_linear, (Vector{S}, Type{T}))    && return solve_linear
+        hasmethod(solve_linear, (Vector{S}, Type{T}))    && return solve_linear
     elseif deg == 2
-        method_exists(solve_quadratic, (Vector{S}, Type{T})) && return solve_quadratic
+        hasmethod(solve_quadratic, (Vector{S}, Type{T})) && return solve_quadratic
     elseif deg == 3
-        method_exists(solve_cubic, (Vector{S}, Type{T}))     && return solve_cubic
+        hasmethod(solve_cubic, (Vector{S}, Type{T}))     && return solve_cubic
 #    elseif deg == 5
-#        method_exists(solve_quintic, (Vector{S}, Type{T}))   && return solve_quintic
+#        hasmethod(solve_quintic, (Vector{S}, Type{T}))   && return solve_quintic
     end
 
     return identity

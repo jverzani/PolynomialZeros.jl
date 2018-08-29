@@ -1,8 +1,7 @@
 using PolynomialZeros
 using Polynomials
-using Compat
-import Compat: iszero
-using Compat.Test
+using Test
+using LinearAlgebra
 
 include("test-amvw.jl")
 include("test-multroot.jl")
@@ -147,8 +146,14 @@ end
 
     # over.C
     ## all methods promote, this just checks for errors
+    for T in [Float64, BigFloat]
+       poly_roots(fn, Over.CC{T}, method=:PolynomialRoots)
+    end
+    for T in [Float64]
+       poly_roots(fn, Over.CC{T}, method=:roots)
+    end
     for T in FTs
-        poly_roots(fn, Over.CC{T})
+        poly_roots(fn, Over.CC{T}, method=:amvw)
     end
     @test_throws MethodError poly_roots(fn, Over.CC{Int})
 
@@ -163,6 +168,6 @@ end
 
     p = poly([3.0])^5
     @test_throws MethodError poly_roots(p, Over.Z) # p has Float64 coefficients.
-    @test poly_roots(convert(Poly{Int}, p), Over.Z) == [3]
+    @test poly_roots(convert(Poly{Int}, p), Over.Z) == [-3.0]
     
 end

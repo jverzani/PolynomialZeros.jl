@@ -1,8 +1,6 @@
 module AGCD
 using Polynomials
-
-using Compat
-import Compat.iszero
+using LinearAlgebra
 
 ## This provide AGCD.agcd for finding an *approximate* GCD of two polynomials. The most common use in this package
 ## is to reduce a polynomial `p` to a square free polynomial `q=p/gcd(p, p')`.
@@ -180,7 +178,7 @@ function lemma24(p::Vector{T}, q::Vector{T}, k::Int, θ=1e-8) where {T}
 
     A = sylvester_matrix(p, q , k)
     MAXSTEPS = 100
-    Q,R = Base.qr(A)
+    Q,R = qr(A)
 
     ## if R is rank deficient, we can have issues solving R' \ x below
     ## What to do in this case with Big values???
@@ -290,7 +288,7 @@ function weighted_least_square(A, b, w)
 end
     
 function weighted_least_square!(M, A, b, w)
-    W = @compat diagm(0 => w)
+    W = diagm(0 => w)
     M[:] = (W * A) \ (W * b)
 end
 
