@@ -10,34 +10,28 @@ mutable struct AMVW_Counter
 end
 
 
-## Rotators
+## Rotators Our rotators have field names c, s where c nad s are
+## either T or Complex{T} It proved to be faster to have immutable
+## rotators, rather than mutable ones so there are no "setter" methods
+## anymore, a new instance (via `Rotator(c,s,i)`) should be used
 
-## Our rotators have field names c, s where c nad s are either T or Complex{T}
 abstract type CoreTransform{T} end
-abstract type Rotator{T} <: CoreTransform{T} end
+abstract type AbstractRotator{T} <: CoreTransform{T} end
 
-is_diagonal(r::Rotator{T}) where {T} = norm(r.s) <= eps(T)
-
-
-Base.copy(a::Rotator) = Rotator(a.c, a.s, a.i)
-function Base.copy!(a::Rotator, b::Rotator)
-    vals!(a, vals(b)...)
-    idx!(a, idx(b))
-end
-
-## set values
-vals(r::Rotator{T}) where {T} = (r.c, r.s)
-idx(r::Rotator) = r.i
-idx!(r::Rotator, i::Int) = r.i = i
+is_diagonal(r::AbstractRotator{T}) where {T} = norm(r.s) <= eps(T)
 
 
+Base.copy(a::AbstractRotator) = AbstractRotator(a.c, a.s, a.i)
+## get values
+vals(r::AbstractRotator{T}) where {T} = (r.c, r.s)
+idx(r::AbstractRotator) = r.i
 
 
 #the index is superflous for now, and a bit of a hassle to keep immutable
 #but might be of help later if twisting is approached. Shouldn't effect speed, but does mean 3N storage (Q, Ct, B)
 #so may be
 #
-mutable struct RealRotator{T} <: Rotator{T}
+struct RealRotator{T} <: AbstractRotator{T}
 c::T
 s::T
 i::Int
@@ -50,30 +44,12 @@ function adjoint(r::RealRotator)
 end
 
 
-Base.one(::Type{RealRotator{T}}) where {T} = RealRotator(one(T), zero(T), 0)
-
-function _ones(S::Type{RealRotator{T}}, N) where {T} 
-#    ZERO = zero(T)
-#    ONE = one(T)
-#    [RealRotator(ONE,ZERO,0) for i in 1:N]
-[RealRotator{T}() for i in 1:N]
-end
-
-## set values
-function vals!(r::RealRotator, c::T, s::T) where {T}
-    # normalize in case of roundoff errors
-    # but, using hueristic of 6.3 on square roots
-    
-    nrmi = sqrt(c^2 + s^2 )
-    nrmi = norm(nrmi - one(T)) >= 1e2*eps(T) ? inv(nrmi) : one(T)
-    r.c = c * nrmi
-    r.s = s * nrmi
-end
+Base.one(::Type{RealRotator{T}}) where {T} = RealRotator(one(T), zero(T), 0)# end
 
 ##################################################
 ### Okay, now try with complex C, real s
-    
-mutable struct ComplexRealRotator{T} <: Rotator{T}
+
+struct ComplexRealRotator{T} <: AbstractRotator{T}
 c::Complex{T}
 s::T
 i::Int
@@ -83,44 +59,25 @@ function adjoint(r::ComplexRealRotator)
     ComplexRealRotator(conj(r.c), -r.s, r.i)
 end
 
-function vals!(r::ComplexRealRotator, c::Complex{T}, s::T) where {T}
-    # normalize in case of roundoff errors
-    # but, using hueristic on 6.3 on square roots
-    
-    nrmi = sqrt(abs(c * conj(c) + s^2))
-    nrmi = norm(nrmi - one(T)) >= eps(T) ? inv(nrmi) : one(T)
-    r.c = c * nrmi
-    r.s = s * nrmi
-end
-function vals!(r::ComplexRealRotator, c::Complex{T}, s::Complex{T}) where {T}
-##    abs(imag(s)) < 4eps(T) || error("setting vals needs real s, got $s")
-    vals!(r, c, real(s))
-end
-vals!(r::ComplexRealRotator{T}, c::T, s::T) where {T} = vals!(r, complex(c, zero(T)), s)
-
 Base.one(::Type{ComplexRealRotator{T}}) where {T} = ComplexRealRotator(complex(one(T), zero(T)), zero(T), 0)
-#Base.ones(S::Type{ComplexRealRotator{T}}, N) where {T} = [one(S) for i in 1:N]
-function _ones(S::Type{ComplexRealRotator{T}}, N) where {T} 
-    ZERO = zero(T)
-    ONE = one(T)
-    [ComplexRealRotator(complex(ONE,ZERO),ZERO,0) for i in 1:N]
-end
+
 
 
 Base.copy(a::ComplexRealRotator) = ComplexRealRotator(a.c, a.s, a.i)
-function Base.copy!(a::ComplexRealRotator, b::ComplexRealRotator)
-    vals!(a, vals(b)...)
-    idx!(a, idx(b))
-end
-  
 
 
+##
+Rotator(c::Complex{T}, s::Complex{T}, i::Int) where {T <: Real} =
+    Rotator(c, real(s), i)
+Rotator(c::Complex{T}, s::T, i::Int) where {T <: Real} = ComplexRealRotator(c,s,i)
+Rotator(c::T, s::T, i::Int) where {T <: Real} = RealRotator(c,s,i)
 
-##################################################
-## We use two complex, rather than 3 reals here.
-## Will be basically the ame storage, as we don't need to include a D, but not quite (12N, not 11N)
-    
-mutable struct ComplexComplexRotator{T} <: Rotator{T}
+
+# ##################################################
+# ## We use two complex, rather than 3 reals here.
+# ## Will be basically the ame storage, as we don't need to include a D, but not quite (12N, not 11N)
+
+struct ComplexComplexRotator{T} <: AbstractRotator{T}
 c::Complex{T}
 s::Complex{T}
 i::Int
@@ -132,21 +89,6 @@ end
 
 
 Base.one(::Type{ComplexComplexRotator{T}}) where {T} = ComplexComplexRotator(complex(one(T), zero(T)), complex(zero(T), zero(T)), 0)
-#Base.ones(S::Type{ComplexComplexRotator{T}}, N) where {T} = [one(S) for i in 1:N]
-_ones(S::Type{ComplexComplexRotator{T}}, N) where {T} = [one(S) for i in 1:N]
-
-## set values
-function vals!(r::ComplexComplexRotator, c::Complex{T}, s::Complex{T}) where {T}
-    # normalize in case of roundoff errors
-    # but, using hueristic on 6.3 on square roots
-    
-    nrmi = sqrt(abs(c * conj(c) + s * conj(s)))
-    nrmi = norm(nrmi - one(T)) >= eps(T) ? inv(nrmi) : one(T)
-    r.c = c * nrmi
-    r.s = s * nrmi
-end
-vals!(r::ComplexComplexRotator, c::Complex{T}, s::T) where {T} = vals!(r, c, complex(s,zero(T)))
-vals!(r::ComplexComplexRotator{T}, c::T, s::T) where {T} = vals!(r, complex(c, zero(T)), complex(s, zero(T)))
 
 
 
@@ -177,7 +119,7 @@ abstract type FactorizationType{T, ShiftType, Pencil, Twisted} end
 
 ## RDS, no pencil, not twisted
 #struct Real_DoubleShift_NoPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Val{:NotTwisted}
-struct Real_DoubleShift_NoPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Val{:NotTwisted}}
+mutable struct Real_DoubleShift_NoPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Val{:NotTwisted}}
 
 N::Int
 POLY::Vector{T}
@@ -206,9 +148,9 @@ function Base.convert(::Type{FactorizationType{T, Val{:DoubleShift}, Val{:NoPenc
     N = length(ps) - 1
 
     Real_DoubleShift_NoPencil_NotTwisted(N, ps,
-                                         _ones(RealRotator{T}, N), #Q
-                                         _ones(RealRotator{T}, N), #Ct
-                                         _ones(RealRotator{T}, N), #B
+                                         Vector{AMVW.RealRotator{T}}(undef, N), #Q
+                                         Vector{AMVW.RealRotator{T}}(undef, N), #Ct '
+                                         Vector{AMVW.RealRotator{T}}(undef, N), # B
                                          zeros(T, N),  zeros(T, N), #EIGS
                                          one(RealRotator{T}), one(RealRotator{T}), #U, Ut
                                          one(RealRotator{T}), one(RealRotator{T}), #V, Vt
@@ -246,13 +188,13 @@ end
 function Base.convert(::Type{FactorizationType{T, Val{:SingleShift}, Val{:NoPencil}, Val{:NotTwisted}}}, ps::Vector{Complex{T}}; ray=true) where {T}
 
     N = length(ps) - 1
-    
+
     ComplexReal_SingleShift_NoPencil_NotTwisted(N, ps,
-                           _ones(ComplexRealRotator{T}, N), #Q
-                           ones(Complex{T}, N+1), # D
-                           _ones(ComplexRealRotator{T}, N), #Ct
-                           _ones(ComplexRealRotator{T}, N), #B
-                           zeros(T, N),  zeros(T, N), #EIGS
+                                                Vector{ComplexRealRotator{T}}(undef,N), #Q
+                                                ones(Complex{T}, N+1), # D
+                                                Vector{ComplexRealRotator{T}}(undef,N), #Ct
+                                                Vector{ComplexRealRotator{T}}(undef,N), #B
+                                                zeros(T, N),  zeros(T, N), #EIGS
     one(ComplexRealRotator{T}), one(ComplexRealRotator{T}), #U, Ut
     zeros(Complex{T}, 2, 2),zeros(Complex{T}, 3, 2), # A R
     zeros(T,2), zeros(T,2),
@@ -267,7 +209,7 @@ end
 ############## Has Pencil, Not twisted ####################################
 
 ## RDS, no pencil, not twisted
-struct Real_DoubleShift_HasPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:HasPencil}, Val{:NotTwisted}}
+mutable struct Real_DoubleShift_HasPencil_NotTwisted{T} <: FactorizationType{T, Val{:DoubleShift}, Val{:HasPencil}, Val{:NotTwisted}}
 
 N::Int
 POLY::Vector{T}
@@ -277,7 +219,7 @@ Ct::Vector{RealRotator{T}}  # We use C', not C here
 B::Vector{RealRotator{T}}
 #
 Ct1::Vector{RealRotator{T}}  # W = Ct * B
-B1::Vector{RealRotator{T}}   # 
+B1::Vector{RealRotator{T}}   #
 ##
 REIGS::Vector{T}
 IEIGS::Vector{T}
@@ -300,11 +242,11 @@ function Base.convert(::Type{FactorizationType{T, Val{:DoubleShift}, Val{:HasPen
     N = length(ps) - 1
 
     Real_DoubleShift_HasPencil_NotTwisted(N, ps,
-                                          _ones(RealRotator{T}, N), #Q
-                                          _ones(RealRotator{T}, N), #Ct
-                                          _ones(RealRotator{T}, N), #B
-                                          _ones(RealRotator{T}, N), #Ct1
-                                          _ones(RealRotator{T}, N), #B1                                         
+                                          Vector{RealRotator{T}}(undef, N), #Q
+                                          Vector{RealRotator{T}}(undef, N), #Ct
+                                          Vector{RealRotator{T}}(undef, N), #B
+                                          Vector{RealRotator{T}}(undef, N), #Ct1
+                                          Vector{RealRotator{T}}(undef, N), #B1
     zeros(T, N),  zeros(T, N), #EIGS
     one(RealRotator{T}), one(RealRotator{T}),
     one(RealRotator{T}), one(RealRotator{T}),
@@ -320,7 +262,7 @@ end
 
 mutable struct ComplexReal_SingleShift_HasPencil_NotTwisted{T} <: FactorizationType{T, Val{:SingleShift}, Val{:HasPencil}, Val{:NotTwisted}}
 
-N::Int 
+N::Int
 POLY::Vector{Complex{T}}
 Q::Vector{ComplexRealRotator{T}}
 D::Vector{Complex{T}}
@@ -349,15 +291,15 @@ end
 function Base.convert(::Type{FactorizationType{T, Val{:SingleShift}, Val{:HasPencil}, Val{:NotTwisted}}}, ps::Vector{Complex{T}}; ray=true) where {T}
 
     N = length(ps) - 1
-    
+
     ComplexReal_SingleShift_HasPencil_NotTwisted(N, ps,
-                                                 _ones(ComplexRealRotator{T}, N), #Q
+                                                 Vector{ComplexRealRotator{T}}(undef, N), #Q
                                                  ones(Complex{T}, N+1), # D
-                                                 _ones(ComplexRealRotator{T}, N), #Ct
-                                                 _ones(ComplexRealRotator{T}, N), #B
-                                                 ones(Complex{T}, N+1), # D1
-    _ones(ComplexRealRotator{T}, N), #Ct1
-    _ones(ComplexRealRotator{T}, N), #B1
+                                                 Vector{ComplexRealRotator{T}}(undef, N), #Ct
+    Vector{ComplexRealRotator{T}}(undef, N), #B
+    ones(Complex{T}, N+1), # D1
+    Vector{ComplexRealRotator{T}}(undef, N), #Ct1
+    Vector{ComplexRealRotator{T}}(undef, N), #B1
     zeros(T, N),  zeros(T, N), #EIGS
     one(ComplexRealRotator{T}), one(ComplexRealRotator{T}), #U, Ut
     zeros(Complex{T}, 2, 2),zeros(Complex{T}, 3, 2), # A , R
@@ -367,4 +309,3 @@ function Base.convert(::Type{FactorizationType{T, Val{:SingleShift}, Val{:HasPen
     AMVW_Counter(0,1,N-1, 0, N-2)
     )
 end
-

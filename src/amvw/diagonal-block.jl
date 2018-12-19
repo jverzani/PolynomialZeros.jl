@@ -29,11 +29,11 @@
 # @vars ck1 ck2 what w1
 # u = rotm(ck1, ck2, 1,2) * [what, w1]
 # u[1](what => solve(u[2], what)[1]) |> simplify
-#     ⎛    ___      2⎞ 
-# -w₁⋅⎝ck₁⋅ck₁ + ck₂ ⎠ 
-# ───────────────────── this is rkk = -w1/ck_s 
-#          ck₂    
-# 
+#     ⎛    ___      2⎞
+# -w₁⋅⎝ck₁⋅ck₁ + ck₂ ⎠
+# ───────────────────── this is rkk = -w1/ck_s
+#          ck₂
+#
 # For r[k-1, k] we need to do more work. We need [what_{k-1}, w_k, w_{k+1}], where w_k, w_{k+1} found from B values as above.
 #
 # julia> @vars ck1 ck2 cj1 cj2 what w w1
@@ -52,8 +52,8 @@
 
 
 # julia> u[1](what => solve(u[3], what)[1]) |> simplify
-#      2                       
-#   cj₁ ⋅w   cj₁⋅ck₁⋅w₁        
+#      2
+#   cj₁ ⋅w   cj₁⋅ck₁⋅w₁
 # - ────── - ────────── - cj₂⋅w
 #    cj₂      cj₂⋅ck₂
 
@@ -66,10 +66,10 @@
 # julia> @vars ck1 ck2 cj1 cj2 ci1 ci2 what wm1 w w1
 # julia> u = rotm(ck1, ck2, 3, 4) * rotm(cj1, cj2, 2, 4) * rotm(ci1, ci2, 1, 4) * [what, wm1, w, w1]
 # julia> u[1](what => solve(u[4], what)[1]) |> simplify
-#      2                                        
-#   ci₁ ⋅wm₁   ci₁⋅cj₁⋅w    ci₁⋅ck₁⋅w₁          
+#      2
+#   ci₁ ⋅wm₁   ci₁⋅cj₁⋅w    ci₁⋅ck₁⋅w₁
 # - ──────── - ───────── - ─────────── - ci₂⋅wm₁
-#     ci₂       ci₂⋅cj₂    ci₂⋅cj₂⋅ck₂                  
+#     ci₂       ci₂⋅cj₂    ci₂⋅cj₂⋅ck₂
 #
 # of -(wm1 + (ci*cj/sj)*w + (ci*ck) / (sj * sk) * w1) / si
 #
@@ -82,9 +82,9 @@
 
 # R = Ct * B
 # This finds R[(k-2):k,(k-1):k] from C and B,
-# If D is necessary, it must be done separately. 
+# If D is necessary, it must be done separately.
 # Here k-2 <= j <= k
-function Rjk(Ct, B, j, k)    
+function Rjk(Ct, B, j, k)
     # delta = k - j
     #    0 <= delta <= 2 || error("k-j in 0,1,2")
     if k - j == 0 # (k,k) case is easiest
@@ -125,19 +125,19 @@ function diagonal_block(state::FactorizationType{T, St, Val{:NoPencil}, Tw}, k) 
         state.R[1,1] = getD(state,1) * Rjk(state.Ct, state.B, 1, 1)
         state.R[1,2] = getD(state,1) * Rjk(state.Ct, state.B, 1, 2)
         state.R[2,1] = ZERO
-        state.R[2,2] = getD(state,2) * Rjk(state.Ct, state.B, 2, 2)        
+        state.R[2,2] = getD(state,2) * Rjk(state.Ct, state.B, 2, 2)
     else
         state.R[1,1] = getD(state,k-2) * Rjk(state.Ct, state.B, k-2, k-1)
         state.R[1,2] = getD(state,k-2) * Rjk(state.Ct, state.B, k-2, k)
         state.R[2,1] = getD(state,k-1) * Rjk(state.Ct, state.B, k-1, k-1)
-        state.R[2,2] = getD(state,k-1) * Rjk(state.Ct, state.B, k-1, k)        
+        state.R[2,2] = getD(state,k-1) * Rjk(state.Ct, state.B, k-1, k)
         state.R[3,1] = ZERO
-        state.R[3,2] = getD(state,k) * Rjk(state.Ct, state.B, k, k)        
+        state.R[3,2] = getD(state,k) * Rjk(state.Ct, state.B, k, k)
     end
 
     compute_QR(state, state.R, k)
 
-    false 
+    false
 
 
 end
@@ -172,20 +172,20 @@ function diagonal_block(state::FactorizationType{T, St, Val{:HasPencil}, Tw}, k)
         Vii, Wii =  getD(state,i) * Rjk(state.Ct, state.B, i,i), getD1(state,i) * Rjk(state.Ct1, state.B1, i,i)
         Vij, Wij =  getD(state,i) * Rjk(state.Ct, state.B, i,j), getD1(state,i) * Rjk(state.Ct1, state.B1, i,j)
         Vik, Wik =  getD(state,i) * Rjk(state.Ct, state.B, i,k), getD1(state,i) * Rjk(state.Ct1, state.B1, i,k)
-        
+
         R[1,1] = Vij/Wjj - Wij * Vii / (Wii*Wjj)
         R[1,2] = Vik/Wkk - Wjk * Vij / (Wjj*Wkk) + Vii *(Wij*Wjk/(Wii*Wjj) - Wik/Wkk)/Wii
         R[2,1] = Vjj / Wjj
         R[2,2] = Vjk/Wkk - Wjk*Vjj - Wjk*Vjj / (Wii*Wjj)
         R[3,1] = zero(T)
         R[3,2] = Vkk / Wkk
-    end        
+    end
 
     # rotate by Q
     compute_QR(state, R, k)
-        
 
-    false 
+
+    false
 end
 
 
@@ -199,7 +199,7 @@ function compute_QR(state::FactorizationType{T, St, P, Val{:NotTwisted}}, R, k) 
     Q = state.Q
 
     if k == 2
-       
+
 # 3×2 Array{SymPy.Sym,2}
 # ⎡                           ___⎤
 # ⎢R₁₁⋅qjc  R₁₂⋅qjc - R₂₂⋅qkc⋅qjs⎥
@@ -216,8 +216,9 @@ function compute_QR(state::FactorizationType{T, St, P, Val{:NotTwisted}}, R, k) 
         A[2,1] = R[1,1] * Qj_s
         A[1,2] = R[1,2] * Qj_c - R[2,2] * Qk_c * conj(Qj_s)
         A[2,2] = R[1,2] * Qj_s + R[2,2] * Qk_c * conj(Qj_c)
+
     else
-     
+
 
 
 # make Qs from multiplying rotators
@@ -231,8 +232,8 @@ function compute_QR(state::FactorizationType{T, St, P, Val{:NotTwisted}}, R, k) 
 # ⎢       q2s⋅r₂₂                  q2s⋅r₂₃ + q3c⋅r₃₃⋅q2c         ⎥
 # ⎢                                                              ⎥
 # ⎣          0                            q3s⋅r₃₃                ⎦
-        Qi_c, Qi_s = vals(Q[k-2]);  Qj_c, Qj_s = vals(Q[k-1]);  Qk_c, Qk_s = vals(Q[k])        
-        
+        Qi_c, Qi_s = vals(Q[k-2]);  Qj_c, Qj_s = vals(Q[k-1]);  Qk_c, Qk_s = vals(Q[k])
+
         A[1,1] = R[1,1] * Qi_s + R[2,1] * conj(Qi_c) * Qj_c
         A[2,1] = R[2,1] * Qj_s
         A[1,2] = R[1,2] * Qi_s + R[2,2] * conj(Qi_c) * Qj_c - R[3,2] * conj(Qi_c) * conj(Qj_s) * Qk_c
@@ -261,10 +262,10 @@ function eigen_values(state::FactorizationType{T,Val{:DoubleShift}, P, Tw}) wher
 
     b = (a11 + a22) / 2
     c = a11 * a22 - a12 * a21
-    
+
     state.e1[1], state.e1[2], state.e2[1], state.e2[2] = qdrtc(one(T), b, c)
-    complex(state.e1[1], state.e1[2]), complex(state.e2[1], state.e2[2])            
-end    
+    complex(state.e1[1], state.e1[2]), complex(state.e2[1], state.e2[2])
+end
 
 # from `modified_quadratic.f90`
 function eigen_values(state::FactorizationType{T,Val{:SingleShift}, P, Tw}) where {T,P, Tw}
@@ -287,6 +288,5 @@ function eigen_values(state::FactorizationType{T,Val{:SingleShift}, P, Tw}) wher
         state.e2[1], state.e2[2] = real(e2), imag(e2)
     end
 
-    complex(state.e1[1], state.e1[2]), complex(state.e2[1], state.e2[2])                
-end    
-
+    complex(state.e1[1], state.e1[2]), complex(state.e2[1], state.e2[2])
+end
