@@ -3,7 +3,6 @@
 ## This follows that given in the paper very closely
 ## should trace algorithm better with `verbose`
 function AMVW_algorithm(state::FactorizationType{T, St, P, Tw}) where {T,St,P,Tw}
-    state.ctrs.it_count = 1 #XXX
 
     it_max = 20 * state.N
     kk = 0
