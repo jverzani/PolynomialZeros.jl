@@ -11,7 +11,7 @@ end
 
 
 ## make a rotator into a full matrix
-function as_full(a::Rotator{T}, N::Int) where {T}
+function as_full(a::AbstractRotator{T}, N::Int) where {T}
     c,s = vals(a)
     i = idx(a)
     i < N || error("$i >= $N; too big")
@@ -44,7 +44,7 @@ end
 
 ## create Full matrix from state object. For diagnostic purposes.
 # we may or may not have a diagonal matrix to keep track or
-D_matrix(state::FactorizationType{T, Val{:SingleShift}, P, Tw}) where {T,P,Tw} = diagm(state.D)
+D_matrix(state::FactorizationType{T, Val{:SingleShift}, P, Tw}) where {T,P,Tw} = diagm(0 => state.D)
 D_matrix(state::FactorizationType) = diagm(0 => ones(state.N+1))#I
 
 ## We can compute yt from the decomposition of R into: R = Ct *(B + yt e1) by multiplying on left by e_n+1^T...
@@ -54,7 +54,7 @@ function _compute_yt(Cts, Bs, N, T)
     e1 = zeros(T, N+1); e1[1]=one(T)
     en = zeros(T, N+1); en[N] = one(T)
     en1 = zeros(T, N+1); en1[N+1] = one(T)
-    
+
     rho = transpose(en1) * Ct * e1  # scalar
     yt = -1/rho * transpose(en1)  * Ct * B
     # clean
@@ -69,12 +69,12 @@ end
 
 function _compute_R(Ct, B, yt, N, T)
     ## we have R = Z + x = Ct * (B  + e1 * yt)
-    Z = Ct * B 
+    Z = Ct * B
     zero_out!(Z)
-    
+
     e1 = zeros(T, N+1); e1[1]=one(T)
-    x = Ct * e1 * yt 
-    
+    x = Ct * e1 * yt
+
     R = (Z + x)
     zero_out!(R)
     R
@@ -82,13 +82,13 @@ end
 
 function _compute_R(Ct, B, yt, D, N, T)
     ## we have R = Z + x = Ct * (B * D + e1 * yt)
-    Z = Ct * B 
+    Z = Ct * B
     zero_out!(Z)
-    
+
     e1 = zeros(T, N+1); e1[1]=one(T)
-    x = Ct * e1 * yt 
+    x = Ct * e1 * yt
     R = Z + x
-    R = diagm(D) * R
+    R = diagm(0 => diag(D)) * R
     zero_out!(R)
     R
 end
@@ -115,7 +115,7 @@ function full_matrix(state::FactorizationType{T, St, Val{:NoPencil}, Val{:NotTwi
     R = _compute_R(Ct, B, yt, D, N, T)
 
     what == :R && return R
-    
+
     A = Q * R
     zero_out!(A)
     A
@@ -124,18 +124,18 @@ end
 
 function full_matrix(state::FactorizationType{T, St, Val{:HasPencil}, Val{:NotTwisted}}, what=:A) where {T, St}
     n = state.N
-    
+
     Q = (prod(as_full.(state.Q, n+1)))[1:n, 1:n]
-    P = diagm(ones(n+1))[:, 1:n]
+    P = diagm(0 => ones(n+1))[:, 1:n]
     if St == Val{:SingleShift}
         V = P' * compute_R(state.Ct, state.B, state.D, state.N, T) * P
         W = P' * compute_R(state.Ct1, state.B1, state.D1, state.N, T) * P
     else
         V = P' * compute_R(state.Ct, state.B, state.N, T) * P
         W = P' * compute_R(state.Ct1, state.B1, state.N, T) * P
-    end        
-    
-    Q * V * inv(W) 
+    end
+
+    Q * V * inv(W)
 end
 
 
@@ -144,7 +144,7 @@ function show_status(state::FactorizationType)
     qs = [norm(u.s) for u in state.Q[state.ctrs.start_index:state.ctrs.stop_index]]
     minq = length(qs) > 0 ?  minimum(qs) : 0.0
 
-    
+
     x = fill(".", state.N+2)
     x[state.ctrs.zero_index+1] = "α"
     x[state.ctrs.start_index+1] = "x"

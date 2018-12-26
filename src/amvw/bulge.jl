@@ -23,24 +23,24 @@ end
 function create_bulge(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}) where {T, P, Tw}
 
     if mod(state.ctrs.it_count, 15) == 0
-        
-        t = rand() * pi
+
+        t = rand(T) * pi
         re1, ie1 = cos(t), sin(t)
         re2, ie2 = re1, -ie1
-        
-        vals!(state.U, re1, ie1); idx!(state.U, state.ctrs.start_index)
-        vals!(state.Ut, re1, -ie1); idx!(state.Ut, state.ctrs.start_index)
-        
-        vals!(state.V, re2, ie2); idx!(state.V, state.ctrs.start_index + 1)
-        vals!(state.Vt, re2, -ie2); idx!(state.Vt, state.ctrs.start_index + 1)        
-        
+
+        state.U = Rotator(re1, ie1,  state.ctrs.start_index)
+        state.Ut = Rotator(re1, -ie1,  state.ctrs.start_index)
+
+        state.V = Rotator(re2, ie2, state.ctrs.start_index + 1)
+        state.Vt = Rotator(re2, -ie2, state.ctrs.start_index + 1)
+
     else
 
         # compute (A-rho1) * (A - rho2) * e_1
         # find e1, e2
 
         flag = diagonal_block(state, state.ctrs.stop_index+1)
-        eigen_values(state)        
+        eigen_values(state)
         l1r, l1i = state.e1
         l2r, l2i =  state.e2
 
@@ -61,33 +61,30 @@ function create_bulge(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}) whe
         #      return create_bulge(state)
         # end
 
-        
-        
+
+
 #        if !flag  # flag is false if there is an issue
 #            restart(state)
 #            return create_bulge(state)
 #        end
-        
+
         # make first three elements of c1,c2,c3
         # c1 = real(-l1i⋅l2i + ⅈ⋅l1i⋅l2r - ⅈ⋅l1i⋅t₁₁ + ⅈ⋅l1r⋅l2i + l1r⋅l2r - l1r⋅t₁₁ - ⅈ⋅l2i⋅t₁₁ - l2r⋅t₁₁ + t₁₁^2  + t₁₂⋅t₂₁)
         # c2 = real(-ⅈ⋅l1i⋅t₂₁ - l1r⋅t₂₁ - ⅈ⋅l2i⋅t₂₁ - l2r⋅t₂₁ + t₁₁⋅t₂₁ + t₂₁⋅t₂₂)
         # c3 = real(t₂₁⋅t₃₂)
-        
+
         c1 = -l1i * l2i + l1r*l2r -l1r*bk11 -l2r * bk11 + bk11^2 + bk12 * bk21
         c2 = -l1r * bk21 - l2r * bk21 + bk11* bk21 + bk21 * bk22
         c3 = bk21 * bk32
 
-        
+
         c, s, nrm = givensrot(c2, c3)
         j = state.ctrs.start_index + 1
-
-        vals!(state.V, c, -s)
-        idx!(state.V, j)
+        state.V = Rotator(c, -s, j)
 
         c, s, tmp = givensrot(c1, nrm)
+        state.U = Rotator(c, -s, j-1)
 
-        vals!(state.U, c, -s)
-        idx!(state.U, j-1)
     end
 
 end
@@ -96,37 +93,35 @@ end
 function create_bulge(state::FactorizationType{T, Val{:SingleShift}, P, Tw}) where {T, P, Tw}
 
     if mod(state.ctrs.it_count, 15) == 0
-        
-        t = rand() * pi
+
+        t = rand(T) * pi
         if state.ray
             shift = complex(cos(t), sin(t))
         else
             shift = complex(cos(t), zero(T))
         end
-        
+
     else
-        
+
         flag = diagonal_block(state, state.ctrs.stop_index+1)
         if state.ray
-            e1, e2 = eigen_values(state)            
+            e1, e2 = eigen_values(state)
             shift = norm(state.A[2,2] - e1) < norm(state.A[2,2] - e2) ? e1 : e2
         else
             shift = state.A[2,2]
         end
-        
+
     end
 
     flag = diagonal_block(state, state.ctrs.start_index+1)
     c,s,nrm = givensrot(state.A[1,1] - shift, state.A[2,1])
-    
-    vals!(state.U, conj(c), -s) # U is the inverse of what we just found,
-        idx!(state.U, state.ctrs.start_index)
 
-    vals!(state.Ut, c, s)
-    idx!(state.Ut, idx(state.U))
+    state.U = Rotator(conj(c), -s, state.ctrs.start_index)
+    state.Ut = Rotator(c, s, idx(state.U))
+
     nothing
 end
-        
+
 
 ##################################################
 ## Absorb Ut
@@ -139,27 +134,29 @@ end
 # This depends on Q, D, and possible sigma but not Pencil case
 function absorb_Ut(state::FactorizationType{T, Val{:SingleShift}, P, Val{:NotTwisted}}) where {T, P}
     i = idx(state.Ut)
-    alpha = fuse(state.Ut, state.Q[i], Val{:right})
+    state.Q[i], alpha = fuse(state.Ut, state.Q[i], Val{:right})
     cascade(state.Q, state.D, alpha, i, state.ctrs.stop_index) # cascade move Di into D through Qs
 end
 
 # This depends on Q
 function absorb_Ut(state::FactorizationType{T, Val{:DoubleShift}, P, Val{:NotTwisted}}) where {T, P}
 
-    copy!(state.Ut, state.U'); copy!(state.Vt, state.V')
-    
+    state.Ut = state.U'
+    state.Vt = state.V'
+
     i = idx(state.U); j  = i + 1
-    
-    copy!(state.W, state.Q[i]) # rename Qi as W
+    state.W = state.Q[i]
+
     p = i == 1 ? one(T) : getd(state.Q[i-1]) #  zero index implies Q0 = RR(1,0) or RR(-1,0)
 
-    dflip(state.W, p)
-    turnover(state.Ut, state.Vt, state.W, Val{:right})
-    fuse(state.Vt, state.Q[j], Val{:right})  # V' Q3
-    dflip(state.Ut, p)
+    state.W = dflip(state.W, p)
+    state.Ut, state.Vt, state.W = turnover(state.Ut, state.Vt, state.W, Val{:right})
+    state.Q[j], alpha = fuse(state.Vt, state.Q[j], Val{:right})  # V' Q3
+    state.Ut = dflip(state.Ut, p)
 
-    vals!(state.Q[i], vals(state.Ut)...) # rename Ut as Qi
+    state.Q[i] = Rotator(state.Ut.c, state.Ut.s, state.Q[i].i)
 
+    nothing
 end
 
 
@@ -199,7 +196,7 @@ passthrough_triu(state::FactorizationType) = passthrough_triu(state, Val{:right}
 ## singleshift case has only one rotator to pass through
 function passthrough_triu(state::FactorizationType{T, Val{:SingleShift}, P, Tw}, dir) where {T, P, Tw}
     ## can't do case of i <= state.ctrs.tr; as we don't have Ct[i] * B[i] = I due to pulling out of alpha.
-    _passthrough_triu(state.U, state, dir)
+    state.U = _passthrough_triu(state.U, state, dir)
 end
 
 
@@ -207,90 +204,112 @@ end
 function passthrough_triu(state::FactorizationType{T, Val{:DoubleShift}, P, Tw}, ::Type{Val{:right}}) where {T, P, Tw}
     i = idx(state.V)
     if i <= state.ctrs.tr
-        copy!(state.Vt, state.V)
-        copy!(state.Ut, state.U)    
-    
-        turnover(state.B[i],    state.B[i+1], state.Vt, Val{:right})
-        turnover(state.B[i-1],  state.B[i],   state.Ut, Val{:right})
+        state.Vt = state.V
+        state.Ut = state.U
+
+        state.B[i], state.B[i+1], state.Vt = turnover(state.B[i],    state.B[i+1], state.Vt, Val{:right})
+        state.B[i-1], state.B[i], state.Ut = turnover(state.B[i-1],  state.B[i],   state.Ut, Val{:right})
         for k in -1:1
             a,b = vals(state.B[i+k])
-            vals!(state.Ct[i+k], a, -b) # using copy!(Ct, B')  for i-1,i,i+1 is slower
+            state.Ct[i+k] = Rotator(a, -b, state.Ct[i+k].i)
         end
     else
-        _passthrough_triu(state.V, state, Val{:right})
-        _passthrough_triu(state.U, state, Val{:right})
+        state.V = _passthrough_triu(state.V, state, Val{:right})
+        state.U = _passthrough_triu(state.U, state, Val{:right})
     end
 end
 
 function passthrough_triu(state::FactorizationType{T, Val{:DoubleShift}, Val{:NoPencil}, Tw}, ::Type{Val{:left}}) where {T, Tw}
-    _passthrough_triu(state.U, state, Val{:left})    
-    _passthrough_triu(state.V, state, Val{:left})
+    state.U = _passthrough_triu(state.U, state, Val{:left})
+    state.V = _passthrough_triu(state.V, state, Val{:left})
 end
 
 ## lower level work of passing a rotatator through the triangular part
 ## There may be one (no pencil) or two such to pass through
 ## pass a specified U through
-function _passthrough_triu(U::Rotator, state::FactorizationType{T, St, Val{:NoPencil}, Tw}, ::Type{Val{:right}}) where {T, St, Tw}
+function _passthrough_triu(U::AbstractRotator, state::FactorizationType{T, St, Val{:NoPencil}, Tw}, ::Type{Val{:right}}) where {T, St, Tw}
 
     i = idx(U)
-    turnover(state.B[i], state.B[i+1], U, Val{:right})
-    turnover(state.Ct[i+1], state.Ct[i], U, Val{:right})
-    
-    St == Val{:SingleShift} && passthrough(state.D, U)
-    
+    state.B[i], state.B[i+1], U = turnover(state.B[i], state.B[i+1], U, Val{:right})
+    state.Ct[i+1], state.Ct[i], U = turnover(state.Ct[i+1], state.Ct[i], U, Val{:right})
+
+    if St == Val{:SingleShift}
+        state.D, U = passthrough(state.D, U)
+    end
+
+    U
 end
 
-function _passthrough_triu(U::Rotator, state::FactorizationType{T, St, Val{:NoPencil}, Tw}, ::Type{Val{:left}}) where {T, St, Tw}
+function _passthrough_triu(U::AbstractRotator, state::FactorizationType{T, St, Val{:NoPencil}, Tw}, ::Type{Val{:left}}) where {T, St, Tw}
 
     i = idx(U)
 
-    St == Val{:SingleShift} && passthrough(state.D, U)
-    
-    turnover(U, state.Ct[i+1], state.Ct[i],  Val{:left})
-    turnover(U, state.B[i], state.B[i+1],    Val{:left})
+    if St == Val{:SingleShift}
+        state.D, U = passthrough(state.D, U)
+    end
 
-    
+    U, state.Ct[i+1], state.Ct[i] = turnover(U, state.Ct[i+1], state.Ct[i],  Val{:left})
+    U, state.B[i], state.B[i+1] = turnover(U, state.B[i], state.B[i+1],    Val{:left})
+
+    U
 end
 
-function _passthrough_triu(U::Rotator, state::FactorizationType{T, St, Val{:HasPencil}, Tw}, ::Type{Val{:right}}) where {T, St, Tw}
+function _passthrough_triu(U::AbstractRotator, state::FactorizationType{T, St, Val{:HasPencil}, Tw}, ::Type{Val{:right}}) where {T, St, Tw}
 
     i = idx(U)
 
     # we pass Ut -> W; not W^{-1} <- U
-    copy!(state.Ut, U')
-    
-    St == Val{:SingleShift} && passthrough(state.D1, state.Ut)
-    turnover(state.Ut, state.Ct1[i+1], state.Ct1[i], Val{:left})
-    turnover(state.Ut, state.B1[i], state.B1[i+1], Val{:left})
+    state.Ut = U'
 
-    copy!(U, state.Ut')    
+    if St == Val{:SingleShift}
+        state.D1, state.Ut = passthrough(state.D1, state.Ut)
+    end
+
+    state.Ut, state.Ct1[i+1], state.Ct1[i] =turnover(state.Ut, state.Ct1[i+1], state.Ct1[i], Val{:left})
+    state.Ut, state.B1[i], state.B1[i+1] = turnover(state.Ut, state.B1[i], state.B1[i+1], Val{:left})
+
+    U = state.Ut'
 
     # through V
-    turnover(state.B[i], state.B[i+1], U, Val{:right})
-    turnover(state.Ct[i+1], state.Ct[i], U, Val{:right})
+    state.B[i], state.B[i+1], U = turnover(state.B[i], state.B[i+1], U, Val{:right})
+    state.Ct[i+1], state.Ct[i], U = turnover(state.Ct[i+1], state.Ct[i], U, Val{:right})
 
-    St == Val{:SingleShift} && passthrough(state.D, U)
+    if St == Val{:SingleShift}
+        state.D, U = passthrough(state.D, U)
+    end
+
+    U
 
 end
 
-function _passthrough_triu(U::Rotator, state::FactorizationType{T, St, Val{:HasPencil}, Tw}, ::Type{Val{:left}}) where {T, St, Tw}
+function _passthrough_triu(U::AbstractRotator, state::FactorizationType{T, St, Val{:HasPencil}, Tw}, ::Type{Val{:left}}) where {T, St, Tw}
 
     i = idx(U)
 
     # through V
-    St == Val{:SingleShift} && passthrough(state.D, U)
-    turnover(state.Ct[i+1], state.Ct[i], U, Val{:right})
-    turnover(state.B[i], state.B[i+1], U, Val{:right})
+    if St == Val{:SingleShift}
+        state.D, U = passthrough(state.D, U)
+    end
+
+    state.Ct[i+1], state.Ct[i], U = turnover(state.Ct[i+1], state.Ct[i], U, Val{:right})
+    state.B[i], state.B[i+1], U = turnover(state.B[i], state.B[i+1], U, Val{:right})
 
     # through W^{-1}
 
-    copy!(state.Ut, U')
-    
-    turnover(state.B1[i], state.B1[i+1], state.Ut, Val{:right})
-    turnover(state.Ct1[i+1], state.Ct1[i], state.Ut, Val{:right})
-    St == Val{:SingleShift} && passthrough(state.D1, state.Ut)
-    copy!(U, state.Ut')    
-    
+    state.Ut = U'
+
+    state.B1[i], state.B1[i+1], state.Ut =
+        turnover(state.B1[i], state.B1[i+1], state.Ut, Val{:right})
+    state.Ct1[i+1], state.Ct1[i], state.Ut =
+        turnover(state.Ct1[i+1], state.Ct1[i], state.Ut, Val{:right})
+
+    if St == Val{:SingleShift}
+        state.D1, state.Ut = passthrough(state.D1, state.Ut)
+    end
+    U = state.Ut'
+
+    U
+
 end
 
 
@@ -304,14 +323,15 @@ end
 ## If we update indices and use a unitary transform, return false (not absorbed)
 ## else return true (was absorved)
 function passthrough_Q(state::FactorizationType{T, Val{:SingleShift}, P, Val{:NotTwisted}}) where {T,P}
-    
+
     i = idx(state.U)
 
     if i < state.ctrs.stop_index
-        turnover(state.Q[i], state.Q[i+1], state.U)
+        state.Q[i], state.Q[i+1], state.U = turnover(state.Q[i], state.Q[i+1], state.U)
+
         false
     else
-        alpha = fuse(state.Q[i], state.U, Val{:left})
+        state.Q[i], alpha = fuse(state.Q[i], state.U, Val{:left})
         state.D[i] *= alpha
         state.D[i+1] *= conj(alpha)
         true
@@ -321,30 +341,33 @@ end
 
 
 function passthrough_Q(state::FactorizationType{T, Val{:DoubleShift}, P, Val{:NotTwisted}}) where {T,P}
-    
+
     i = idx(state.U); j = i + 1
-    
+
     if j < state.ctrs.stop_index
-        turnover(state.Q[j], state.Q[j+1], state.V)
-        turnover(state.Q[i], state.Q[i+1], state.U)
-        turnover(state.W, state.V, state.U, Val{:left})
+        state.Q[j], state.Q[j+1], state.V =
+            turnover(state.Q[j], state.Q[j+1], state.V)
+        state.Q[i], state.Q[i+1], state.U =
+            turnover(state.Q[i], state.Q[i+1], state.U)
+        state.W, state.V, state.U =
+            turnover(state.W, state.V, state.U, Val{:left})
         false
     else
         p = getd(state.Q[j+1])
-        dflip(state.V, p)
-        fuse(state.Q[j], state.V, Val{:left})
+        state.V = dflip(state.V, p)
+        state.Q[j], alpha = fuse(state.Q[j], state.V, Val{:left})
 
         # now turnover U, merge with W, unitary over, pass through, and fuse
-        turnover(state.Q[i], state.Q[i+1], state.U)
+        state.Q[i], state.Q[i+1], state.U =
+            turnover(state.Q[i], state.Q[i+1], state.U)
         i += 1 # after turnover, U moves down
-        fuse(state.W, state.U, Val{:right})
-        
+        state.U, alpha = fuse(state.W, state.U, Val{:right})
+
         # pass U through triangle then fuse
-        AMVW._passthrough_triu(state.U, state, Val{:right})
-        dflip(state.U, p)
-        fuse(state.Q[i], state.U, Val{:left})
-        
+        state.U = _passthrough_triu(state.U, state, Val{:right})
+        state.U = dflip(state.U, p)
+        state.Q[i], alpha = fuse(state.Q[i], state.U, Val{:left})
+
         true
     end
 end
-

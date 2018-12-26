@@ -16,25 +16,22 @@ function R_factorization(ps::Vector{Complex{T}}, Ct, B, side=Val{:left}) where {
 
     nrm = norm(c)
     alpha = c/nrm
-    
+
     alpha = alpha
-    
-    vals!(Ct[N], conj(c), -s);
-    idx!(Ct[N], N)
-    
-    vals!(B[N], -s*alpha, norm(c))
-    idx!(B[N], N)
+
+    Ct[N] = Rotator(conj(c), -s, N)
+    B[N] = Rotator(-s*alpha, norm(c), N)
 
     ## do we leave on left? If so, it must pass through Cts and B
     gamma = side == Val{:left} ? alpha : one(Complex{T})
 
-    for i in (N-1):-1:1
-        c,s,tmp = givensrot(ps[i], tmp)
-        vals!(Ct[i], conj(c*gamma), -s)
-        idx!(Ct[i], i)
+    @inbounds for i in (N-1):-1:1
 
-        vals!(B[i], c*gamma, s)
-        idx!(B[i], i)
+        c,s,tmp = givensrot(ps[i], tmp)
+
+        Ct[i] = Rotator(conj(c*gamma), -s, i)
+        B[i] = Rotator(c * gamma, s, i)
+
     end
 
     side == Val{:left} ? alpha : conj(alpha)
@@ -48,22 +45,18 @@ end
 #              0 0 1 0       -1
 function R_factorization(ps::Vector{T}, Ct, B, side=Val{:not_applicable}) where {T <: Real}
     N = length(ps) - 1
-    c,s,tmp = givensrot(ps[N], - one(T))
+    c, s, tmp = givensrot(ps[N], -one(T))
 
-    vals!(Ct[N], c, -s);
-    idx!(Ct[N], N)
-    vals!(B[N], -s, c)
-    idx!(B[N], N)
-    
-   
-    for i in (N-1):-1:1
+    Ct[N] = Rotator(c, -s, N)
+    B[N] = Rotator(-s, c, N)
+
+    @inbounds for i in (N-1):-1:1
         c,s,tmp = givensrot(ps[i], tmp)
-        vals!(Ct[i], c, -s)
-        idx!(Ct[i], i)
-
-        vals!(B[i], c, s)
-        idx!(B[i], i)
+        Ct[i] = Rotator(c, -s, i)
+        B[i] = Rotator(c,s, i)
     end
+
+    nothing
 end
 
 
@@ -72,12 +65,11 @@ function Q_factorization(state::FactorizationType{T, St, P, Tw}) where {T, St, P
     Q = state.Q
     S = St == Val{:SingleShift} ? Complex{T} : T # type of cosine term in rotator
     zS, oS,zT,oT = zero(S), one(S), zero(T), one(T)
-    for ii = 1:(N-1)
-        vals!(Q[ii], zS, oT)
-        idx!(Q[ii], ii)
+    @inbounds for ii = 1:(N-1)
+        Q[ii] = Rotator(zS, oT, ii)
+
     end
-    vals!(Q[N], oS, zT)
-    idx!(Q[N], N)
+    Q[N] = Rotator(oS, zT, N)
 end
 
 
@@ -120,7 +112,7 @@ function init_triu(state::FactorizationType{T, Val{:SingleShift}, Val{:HasPencil
     beta =  R_factorization(qs, state.Ct1, state.B1)
     state.D1[state.N] = beta
     state.D1[state.N+1] = conj(beta)
-    
+
     alpha =  R_factorization(ps, state.Ct, state.B)
     state.D[state.N] = alpha
     state.D[state.N+1] = conj(alpha)
@@ -142,7 +134,7 @@ end
 # function restart(state::ShiftType{T}) where {T}
 #     # try again
 #     init_state(state)
-    
+
 #     for i in 1:state.N
 #         state.REIGS[i] = state.IEIGS[i] = zero(T)
 #     end
@@ -152,7 +144,3 @@ end
 #     state.ctrs.it_count = 0
 #     state.ctrs.tr = state.N - 2
 # end
-
-
-
-

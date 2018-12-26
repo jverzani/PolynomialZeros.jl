@@ -18,7 +18,7 @@ function deflate(state::FactorizationType{T,Val{:DoubleShift},P, Tw}, k) where {
     # make a D matrix for Q. C could be +/- 1
     c,s = vals(state.Q[k])
     c = c/norm(c)
-    vals!(state.Q[k], c, zero(T)) # zero out s, will renormalize c
+    state.Q[k] = RealRotator(c, zero(T), state.Q[k].i)
 
     # shift zero counter
     state.ctrs.zero_index = k      # points to a matrix Q[k] either RealRotator(-1, 0) or RealRotator(1, 0)
@@ -46,9 +46,9 @@ function deflate(state::FactorizationType{T,Val{:SingleShift},P, Val{:NotTwisted
     # then the Dk's are collected into D
 
     alpha, s = vals(state.Q[k])
-    vals!(state.Q[k], one(Complex{T}), zero(T)) # I
+    state.Q[k] = Rotator(one(Complex{T}), zero(T), idx(state.Q[k]))
 
-    cascade(state.Q, state.D, alpha, k, state.ctrs.stop_index) 
+    cascade(state.Q, state.D, alpha, k, state.ctrs.stop_index)
 
     # shift zero counter
     state.ctrs.zero_index = k      # points to a matrix Q[k] either RealRotator(-1, 0) or RealRotator(1, 0)
