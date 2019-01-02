@@ -98,7 +98,7 @@ function pejroot(p::Poly, z0::Vector, l::Vector{Int};
         delta = norm(zk1 - zk, 2)
 
         if delta > deltaold
-            println("Growing delta. Best guess is being returned.")
+            @info "Growing delta. Best guess is being returned."
             break
         end
 
@@ -112,7 +112,7 @@ function pejroot(p::Poly, z0::Vector, l::Vector{Int};
         zk=zk1
     end
 
-    if !cvg println("""
+    if !cvg @info ("""
 Returning the initial estimates, as the
 algorithm failed to improve estimates for the roots on the given
 pejorative manifold.
@@ -122,35 +122,76 @@ pejorative manifold.
     return(zk1)
 end
 
+"""
+    multroot(p; [θ, ρ, ϕ, δ])
 
-## Main interface to finding roots of polynomials with multiplicities
-##
-## The `multroot` function returns the roots and their multiplicities
-## for `Poly` objects. It performs better than `roots` if the
-## polynomial has multiplicities.
-##
-## julia> x = poly([0.0]);
-## julia> p = (x-1)^4 * (x-2)^3 * (x-3)^3 * (x-4)l
-## julia> multroot(p)
-## ([1.0,2.0,3.0,4.0],[4,3,3,1])
-## ## For "prettier" printing, results can be coerced to a dict
-## julia> [k => v for (k,v) in zip(multroot(p)...)]
-## Dict{Any,Int64} with 4 entries:
-##   1.0000000000000007 => 4
-##   3.000000000000018  => 3
-##   1.9999999999999913 => 3
-##   3.999999999999969  => 1
-## ## Large order polynomials prove difficult. We can't match the claims in Zeng's paper
-## ## as we don't get the pejorative manifold structure right.
-## julia> p = poly([1.0:10.0]);
-## julia> multroot(p) ## should be 1,2,3,4,...,10 all with multplicity 1, but
-## ([1.0068,2.14161,3.63283,5.42561,7.25056,8.81228,9.98925],[1,2,1,2,2,1,1])
-##
+Find roots of polynomial `p`,
+
+The `multroot` function returns the roots and their multiplicities
+for `Poly` objects. It performs better than `roots` when the
+polynomial has multiplicities.
+
+Based on "Computing multiple roots of inexact polynomials"
+Zhonggang Zeng
+Journal: Math. Comp. 74 (2005), 869-903
+http://www.neiu.edu/~zzeng/mathcomp/zroot.pdf
+
+Zeng has a MATLAB package `multroot`, from which this name is derived.
+
+Basic idea is:
+* for polynomial p we do gcd decomposition p = u * v; p' = u * w. Then roots(v) are the roots without multiplicities.
+* can repeat with u to get multiplicities.
+
+The basic idea is from Gauss, as explained in paper. Zeng shows how to get u,v,w when the polynomials
+are inexact due to floating point approximations or even model error. This is done in his
+algorithm II.
+
+Zeng's algorithm I (pejroot) uses the pejorative manifold of Kahan and Gauss-Newton to
+improve the root estimates from algorithm II (roots(v)). The pejorative manifold is defined by
+the multiplicities l and is operationalized in `evalG` and `evalJ` from Zeng's paper.
+
+Examples:
+```
+x = poly([0.0]);
+p = (x-1)^4 * (x-2)^3 * (x-3)^3 * (x-4)
+multroot(p) # ([4.0, 3.0, 2.0, 1.0], [1, 3, 3, 4])
+
+## For "prettier" printing, results can be coerced to a dict
+Dict(k=>v for (k, v) in zip(multroot(p)...))
+## Dict{Float64,Int64} with 4 entries:
+##   4.0 => 1
+##   2.0 => 3
+##   1.0 => 4
+##   3.0 => 3
+
+## compare to
+roots(p)
+# 11-element Array{Complex{Float64},1}:
+#   4.000000000049711 + 0.0im
+#   3.000340992482669 + 0.0005901104690775108im
+#   3.000340992482669 - 0.0005901104690775108im
+#  2.9993180137669726 + 0.0im
+#  2.0006129094631833 + 0.0im
+#  1.9996935459268157 + 0.0005303204210266187im
+#  1.9996935459268157 - 0.0005303204210266187im
+#  1.0006651061397798 + 0.00066713538542472im
+#  1.0006651061397798 - 0.00066713538542472im
+#  0.9993348938107887 + 0.0006630950464016094im
+#  0.9993348938107887 - 0.0006630950464016094im
+
+## Large order polynomials prove difficult. We can't match the claims in Zeng's paper
+## as we don't get the pejorative manifold structure right.
+p = poly(1.0:7.0));
+multroot(p^2) ## should be 1,2,3,4,...,7 all with multplicity 2, but
+## ([7.00028, 6.99972, 6.00088, 5.99912, 5.00102, 4.99898, 4.00055, 3.99945, 3.00014, 2.99986, 2.00002, 1.99998, 1.0, 0.999999], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+
 ## nearby roots can be an issue
-## julia> delta = 0.0001  ## delta = 0.001 works as desired.
-## julia> p = (x-1 - delta)*(x-1)*(x-1 + delta)
-## julia> multroot(p)
-## ([0.999885,1.00006],[1,2])
+delta = 0.00001  ## delta = 0.0001 works as desired.
+p = (x-1 - delta)*(x-1)*(x-1 + delta)
+multroot(p)
+## ([1.0], [3])
+```
+"""
 function multroot(p::Poly;
                   θ::Real=1e-8,  #
                   ρ::Real=1e-10, # initial residual tolerance
@@ -164,15 +205,6 @@ function multroot(p::Poly;
     if Polynomials.degree(p) == 1
         return (roots(p), [1])
     end
-
-    ## if degree(p) == 2
-    ##     a,b,c = coeffs(p)
-    ##     discr = b^2 - 4a*c
-    ##     if discr < 0
-    ##         discr = Complex(discr, 0)
-    ##     end
-    ##     return  ( -2c / (-b - sqrt(discr)), -2c/(-b + sqrt(discr)))
-    ## end
 
     p = Poly(float(coeffs(p)))  # floats, not Int
 

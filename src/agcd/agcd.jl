@@ -24,9 +24,23 @@ using LinearAlgebra
 # we use vectors, not polynomials. Some of this if copied and modified from Polynomials.jl
 # originally by @vtjnash
 _degree(p::Vector) = length(p) - 1
-_polyval(p, x) = "XXX"
-_monic(p::Vector) = p./p[end]
-_monic!(p::Vector) = p ./= p[end]
+function _polyval(p::Vector{T}, x::S) where {T, S}
+    R = promote_type(T,S)
+    y = convert(R, p[end])
+    for i in lastindex(p)-1:-1:1
+        y = p[i] + x * y
+    end
+    y
+end
+function _monic!(ps::Vector{T}) where T
+    lambda = iszero(ps[end]) ? one(T) : 1 / ps[end]
+    ps .= ps .* lambda
+end
+function _monic(p::Vector)
+    p1 = copy(p)
+    _monic!(p1)
+    p1
+end
 _float(p::Vector) = float(p)
 
 function _polymul(p::Vector{T}, q::Vector{S}) where {T,S}
@@ -73,48 +87,48 @@ function cauchy_matrix(p::Vector{T}, k::Integer) where {T}
     out
 end
 
-function sylvester_matrix_size(p, q, k::Int=0)
-    n, m = length(p), length(q)
+# function sylvester_matrix_size(p, q, k::Int=0)
+#     n, m = length(p), length(q)
 
-    if n < m
-        n,m = m,n
-    end
-    Δ = n - m
-
-
-    i,j = Δ + k, k
-    a,b = cauchy_matrix_size(q,i)
-    c,d = cauchy_matrix_size(p, j)
-    (a, b + d)
-end
-
-function sylvester_matrix!(M, p::Vector, q::Vector, k::Int=0)
-    @assert k >= 0
-    n,m = length(p)-1, length(q) - 1
-    if n < m
-        p,q = q,p
-        n,m = m,n
-    end
-
-    # M is u × w = (v1+v2) × w
-    Δ = n - m
-    i,j = k + Δ, k
-
-    v,w = cauchy_matrix_size(p, j)
-    u = size(M)[2]
+#     if n < m
+#         n,m = m,n
+#     end
+#     Δ = n - m
 
 
-    cauchy_matrix!(view(M, :, 1:(u-w)),   q, i)
-    cauchy_matrix!(view(M, :, (u-w+1):u), p, j)
+#     i,j = Δ + k, k
+#     a,b = cauchy_matrix_size(q,i)
+#     c,d = cauchy_matrix_size(p, j)
+#     (a, b + d)
+# end
 
-end
+# function sylvester_matrix!(M, p::Vector, q::Vector, k::Int=0)
+#     @assert k >= 0
+#     n,m = length(p)-1, length(q) - 1
+#     if n < m
+#         p,q = q,p
+#         n,m = m,n
+#     end
 
-function sylvester_matrix(p::Vector{T}, q::Vector{S}, k::Int=0) where {T,S}
-    R = promote_type(T,S)
-    M = zeros(R, sylvester_matrix_size(p,q,k)...)
-    sylvester_matrix!(M, p, q, k)
-    M
-end
+#     # M is u × w = (v1+v2) × w
+#     Δ = n - m
+#     i,j = k + Δ, k
+
+#     v,w = cauchy_matrix_size(p, j)
+#     u = size(M)[2]
+
+
+#     cauchy_matrix!(view(M, :, 1:(u-w)),   q, i)
+#     cauchy_matrix!(view(M, :, (u-w+1):u), p, j)
+
+# end
+
+# function sylvester_matrix(p::Vector{T}, q::Vector{S}, k::Int=0) where {T,S}
+#     R = promote_type(T,S)
+#     M = zeros(R, sylvester_matrix_size(p,q,k)...)
+#     sylvester_matrix!(M, p, q, k)
+#     M
+# end
 
 ## Jacobian F(u,v,w) = [p,p'] is J(u,v,w)
 function JF_size(u, v, w)
@@ -170,58 +184,58 @@ end
 
 ## ----------------------------------------
 
-## converge on right singular vector of A associated with singular value sigma (not a double value)
-## we return if sigma < tol; delta \appro 0;
-## how to @assert that sigma_2 > sigma_1?
-## claim is that this could be improved were A recycled
-function lemma24(p::Vector{T}, q::Vector{T}, k::Int, θ=1e-8) where {T}
+# ## converge on right singular vector of A associated with singular value sigma (not a double value)
+# ## we return if sigma < tol; delta \appro 0;
+# ## how to @assert that sigma_2 > sigma_1?
+# ## claim is that this could be improved were A recycled
+# function lemma24(p::Vector{T}, q::Vector{T}, k::Int, θ=1e-8) where {T}
 
-    A = sylvester_matrix(p, q , k)
-    MAXSTEPS = 100
-    Q,R = qr(A)
+#     A = sylvester_matrix(p, q , k)
+#     MAXSTEPS = 100
+#     Q,R = qr(A)
 
-    ## if R is rank deficient, we can have issues solving R' \ x below
-    ## What to do in this case with Big values???
+#     ## if R is rank deficient, we can have issues solving R' \ x below
+#     ## What to do in this case with Big values???
 
-    if iszero(det(R))
-        u = q
-        w = [one(T)]
-        v =  cauchy_matrix(u, length(p) - length(u) + 1) \ p; _monic(v)
+#     if iszero(det(R))
+#         u = q
+#         w = [one(T)]
+#         v =  cauchy_matrix(u, length(p) - length(u) + 1) \ p; _monic(v)
 
-        return (zero(T), vcat(v,w))
-    end
+#         return (zero(T), vcat(v,w))
+#     end
 
-    #    x = rand(size(A)[2]);
-    #    x ./= norm(x,2)   # use random initial guess
-    x = ones(T, size(A)[2]) # use fixed initial guess
-    σ, σ1 = 1e8, Inf
+#     #    x = rand(size(A)[2]);
+#     #    x ./= norm(x,2)   # use random initial guess
+#     x = ones(T, size(A)[2]) # use fixed initial guess
+#     σ, σ1 = 1e8, Inf
 
-    ## how long do we update? Size is only issue, not accuracy so we iterate until we stop changing much
-    m, n = size(R)
-    y = zeros(T, m)
-    z = zeros(T, n)
-    flag = :maxteps
-    for cnt in 1:MAXSTEPS
-        y[:] = R' \ x
-        z[:] = R \ y
-        x[:] = z/norm(z,2)
-        sigma = norm(R * x, 2)  # y/norm(z,2)
-        σ1 = abs(sigma)
+#     ## how long do we update? Size is only issue, not accuracy so we iterate until we stop changing much
+#     m, n = size(R)
+#     y = zeros(T, m)
+#     z = zeros(T, n)
+#     flag = :maxteps
+#     for cnt in 1:MAXSTEPS
+#         y[:] = R' \ x
+#         z[:] = R \ y
+#         x[:] = z/norm(z,2)
+#         sigma = norm(R * x, 2)  # y/norm(z,2)
+#         σ1 = abs(sigma)
 
-        if σ1 < θ
-            flag = :threshhold
-            break
-        end
-        if  (abs((σ - σ1) / σ1) < 1.1)
-            flag = :pause
-            break
-        end
+#         if σ1 < θ
+#             flag = :threshhold
+#             break
+#         end
+#         if  (abs((σ - σ1) / σ1) < 1.1)
+#             flag = :pause
+#             break
+#         end
 
-        σ = σ1
-    end
+#         σ = σ1
+#     end
 
-    return (σ1, x)
-end
+#     return (σ1, x)
+# end
 
 
 
@@ -334,97 +348,214 @@ end
 
 ## ----------------------
 
-## some diagnostic functions
-function sylvester_matrix_singular_values(p0::Vector{T}, q0::Vector=_polyder(p0)) where {T}
-    p, q = _float(p0), _float(q0)
-    p, q = _monic(p), _monic(q)
-    n, m = _degree(p), _degree(q)
+# ## some diagnostic functions
+# function sylvester_matrix_singular_values(p0::Vector{T}, q0::Vector=_polyder(p0)) where {T}
+#     p, q = _float(p0), _float(q0)
+#     p, q = _monic(p), _monic(q)
+#     n, m = _degree(p), _degree(q)
 
-    n < m && return sylvester_matrix_ranks(q, p)
+#     n < m && return sylvester_matrix_ranks(q, p)
 
 
-    ψs = zeros(T, m-1)
-    for k in 1:(m-1)
-        ψ, x = lemma24(p, q, k)
-        ψs[k] = ψ
-    end
-    ψs
-end
+#     ψs = zeros(T, m-1)
+#     for k in 1:(m-1)
+#         ψ, x = lemma24(p, q, k)
+#         ψs[k] = ψ
+#     end
+#     ψs
+# end
 
-# find u,v,w,err assuming gcd is rank k
-function rank_k_agcd(k, p::Vector, q::Vector=_polyder(p), θ=1e-8, ρ=1e-10)
-    ψ, x = lemma24(_monic(p), _monic(q), k, θ)
-    v = x[1:(length(x)-k)]; _monic(v)
-    w = x[(length(x)-k+1):end]; _monic(w)
-    # solve for u using least-squares, not division
-    u = cauchy_matrix(v, length(p) - length(v) + 1) \ p; _monic(u)
+# # find u,v,w,err assuming gcd is rank k
+# function rank_k_agcd(k, p::Vector, q::Vector=_polyder(p), θ=1e-8, ρ=1e-10)
+#     ψ, x = lemma24(_monic(p), _monic(q), k, θ)
+#     v = x[1:(length(x)-k)]; _monic(v)
+#     w = x[(length(x)-k+1):end]; _monic(w)
+#     # solve for u using least-squares, not division
+#     u = cauchy_matrix(v, length(p) - length(v) + 1) \ p; _monic(u)
 
-    ρm, flag = reduce_residual!(u,v,w, p, q, _weights(p, q), ρ)
+#     ρm, flag = reduce_residual!(u,v,w, p, q, _weights(p, q), ρ)
 
-    (u, v, w, ρm)
-end
+#     (u, v, w, ρm)
+# end
 
 
 ## ----------------------
 
 
-"""
-Return k, u,v,w where k reveals rank; u*v ≈ p; u*w ≈ q; v & w coprime
+# """
+# Return k, u,v,w where k reveals rank; u*v ≈ p; u*w ≈ q; v & w coprime
 
-Following Zeng, section 4, this could be made more efficient by recycling QR decomposition
+# Following Zeng, section 4, this could be made more efficient by recycling QR decomposition
 
-Default parameter choice comes from Zeng
+# Default parameter choice comes from Zeng
 
-Can we engineer around the minimum?
-"""
-function reveal_rank(p::Vector{T}, q::Vector{T}, θ=1e-8, ρ=1e-10) where {T}
-    # we check k until 1) lemma24 is small *and* we can refine residual error
-    n,m = length(p), length(q)  # assume n >= m
+# Can we engineer around the minimum?
+# """
+# function reveal_rank(p::Vector{T}, q::Vector{T}, θ=1e-8, ρ=1e-10) where {T}
+#     # we check k until 1) lemma24 is small *and* we can refine residual error
+#     n,m = length(p), length(q)  # assume n >= m
 
-    θ = θ * norm(p,2)  # p23
-    wts = _weights(p,q)
+#     θ = θ * norm(p,2)  # p23
+#     wts = _weights(p,q)
 
-    # umin = T[]; vmin=T[]; wmin=T[];
-    # ρm_min1 = Inf
-    # ρm_min = Inf
-    # mk = 0
+#     # umin = T[]; vmin=T[]; wmin=T[];
+#     # ρm_min1 = Inf
+#     # ρm_min = Inf
+#     # mk = 0
 
-    # psis = zeros(T, m-1)
+#     # psis = zeros(T, m-1)
 
-    for k in 1:m-1
-        psi, x = lemma24(p,q,k, θ)
-        # psis[k] = psi
+#     for k in 1:m-1
+#         psi, x = lemma24(p,q,k, θ)
+#         # psis[k] = psi
 
-        if abs(psi) < norm(p,2) * θ #  norm(p,2)? norm(A,2)?
+#         if abs(psi) < norm(p,2) * θ #  norm(p,2)? norm(A,2)?
 
 
-            ## degree u = n - k; degree(v) = k
-            v = x[1:(length(x)-k)]; _monic!(v)
-            w = x[(length(x)-k+1):end]; _monic!(w)
-            # solve for u using least-squares, not division
-            A = cauchy_matrix(v, length(p) - length(v) + 1)
-            u = cauchy_matrix(v, length(p) - length(v) + 1) \ p; _monic!(u)
-            ρm, flag = reduce_residual!(u,v,w, p, q, wts, ρ)
-            if flag == :converged
-                return (k, u, v, w)
-            # elseif ρm < ρm_min
-            #    umin = u; vmin=v; wmin = w; ρm_min = ρm; ρm_min1 = ρm_min; mk=k
-            end
+#             ## degree u = n - k; degree(v) = k
+#             v = x[1:(length(x)-k)]; _monic!(v)
+#             w = x[(length(x)-k+1):end]; _monic!(w)
+#             # solve for u using least-squares, not division
+#             A = cauchy_matrix(v, length(p) - length(v) + 1)
+#             u = cauchy_matrix(v, length(p) - length(v) + 1) \ p; _monic!(u)
+#             ρm, flag = reduce_residual!(u,v,w, p, q, wts, ρ)
+#             if flag == :converged
+#                 return (k, u, v, w)
+#             # elseif ρm < ρm_min
+#             #    umin = u; vmin=v; wmin = w; ρm_min = ρm; ρm_min1 = ρm_min; mk=k
+#             end
+#         end
+#     end
+
+#     ## This is tricky to get correct! The psis should be 0, but what is 0 is unclear.
+#     ## Following Zeng, we have norm(p,2)*θ *and* the residual error less than sqrt(norm(p,2))*ρ
+#     ## Zeng uses norm(U,2) there.
+#     ## is by no means perfect.
+
+#     # if ρm_min < 2/3 * ρm_min1
+#     #     println("Is k=$mk a winner? ρm = $ρm_min next is $ρm_min1")
+#     # end
+
+#     return (n, ones(T,1), p, q)
+
+
+# end
+
+
+# function agcd1(p::Vector{T}, q::Vector{S}=_polyder(p);
+#                                        θ = 1e-8,
+#                                        ρ = 1e-10
+#               ) where {T <: Number,S <: Number}
+
+#     n, m = length(p), length(q)
+#     if m > n
+#         p, q=q, p
+#     end
+
+#     R = promote_type(T,S)
+#     p0 = float.(convert(Vector{R}, p)); _monic!(p0)
+#     q0 = float.(convert(Vector{R}, q)); _monic!(q0)
+
+
+#     if m == 0
+#         return (ones(R,1), p0, q0, zero(R))
+#     end
+
+#     k, u, v, w = reveal_rank(p0, q0, θ, ρ)
+
+#     (u, v, w, residual_error(p0, q0, u, v, w))
+# end
+
+function _mult(Gs, A)
+    for G in Gs
+        A = G * A
+    end
+    A
+end
+
+function qr_sylvester!(Gs, A0, k)
+
+        A = copy(A0)
+        m,n = size(A)
+        for i in m:-1:2
+            Gi, r = givens(A[1,1],A[i,1], 1, i)
+            A = Gi * A
+            push!(Gs, Gi)  # [G1, G2, ..., Gn]
         end
+
+        for i in m:-1:3
+            Gi, r = givens(A[2,2],A[i,2], 2, i)
+            A = Gi * A
+            push!(Gs, Gi)
+        end
+        return A[1:2,1:2]
+end
+
+function qr_sylvester!(Gs, A0, k, R)
+    T = eltype(A0)
+    N = (k-1)
+    Zs = zeros(T, N)
+    B = vcat(hcat(Zs, Zs), A0)
+    B = _mult(Gs, B)
+    m,n = size(B)
+    for i in m:-1:(2k)
+        Gi, r = givens(B[2(k-1)+1, 1],   B[i, 1], 2(k-1)+1, i)
+        B = Gi * B
+        push!(Gs, Gi)
+    end
+    for i in m:-1:(2k+1)
+            Gi, r = givens(B[2k, 2], B[i, 2], 2k, i)
+        B = Gi * B
+        push!(Gs, Gi)
+    end
+    return [vcat(R, zeros(T, 2, 2*(k-1))) B[1:(2k),:]]
+end
+
+
+# return sigma, x
+# converge on smallest eigenvalue of (A'*A) using power rule
+# A=QR; (A'*A)^-1) = (R'*Q'*Q*R)^(-1) = (R'*R)^(-1)
+# instead of computing x_{i+1} = (R'*R)^{-1} xi; we solve R'y=xi; Rz=y;x=z/|z|
+function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=sqrt(eps(real(T)))) where {T}
+
+
+    if iszero(det(R))
+
+        ## engineer
+        return (:iszero, zero(T), T[])
     end
 
-    ## This is tricky to get correct! The psis should be 0, but what is 0 is unclear.
-    ## Following Zeng, we have norm(p,2)*θ *and* the residual error less than sqrt(norm(p,2))*ρ
-    ## Zeng uses norm(U,2) there.
-    ## is by no means perfect.
-
-    # if ρm_min < 2/3 * ρm_min1
-    #     println("Is k=$mk a winner? ρm = $ρm_min next is $ρm_min1")
-    # end
-
-    return (n, ones(T,1), p, q)
 
 
+    m,n = size(R)
+    x = ones(T, n)
+    σ, σ1 = zero(T), Inf*one(T)
+
+    y = zeros(T, m)
+    z = zeros(T, n)
+
+
+    flag = :ispositive
+    for cnt in 1:100
+        y[:] = R' \ x
+        z[:] = R \ y
+        nz = 1/norm(z,2)
+        x[:] = z .* nz
+        sigma = norm(R * x, 2)
+        σ1 = abs(sigma)
+        if σ1 < thresh
+            flag = :ispossible
+            break
+        end
+        if  (abs((σ - σ1) / σ1) < 1.1)
+            flag = :ispossible
+            break
+        end
+
+        σ = σ1
+    end
+
+    return (flag, σ1, x)
 end
 
 
@@ -473,143 +604,13 @@ of `u`, `v`, and `w` are returned by `rank_k_agcd`.
 
 
 """
-function agcd1(p::Vector{T}, q::Vector{S}=_polyder(p);
-                                       θ = 1e-8,
-                                       ρ = 1e-10
-              ) where {T <: Number,S <: Number}
+function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps); θ=sqrt(eps(float(real(T)))), ρ=1e-2*θ) where {T,S}
 
-    n, m = length(p), length(q)
-    if m > n
-        p, q=q, p
-    end
+    _monic!(ps); _monic!(qs)
+    n, m = length(ps), length(qs)
 
     R = promote_type(T,S)
-    p0 = float.(convert(Vector{R}, p)); _monic!(p0)
-    q0 = float.(convert(Vector{R}, q)); _monic!(q0)
-
-
-    if m == 0
-        return (ones(R,1), p0, q0, zero(R))
-    end
-
-    k, u, v, w = reveal_rank(p0, q0, θ, ρ)
-
-    (u, v, w, residual_error(p0, q0, u, v, w))
-end
-
-##
-_diff(ps) = ps[2:end] .* (1:(length(ps)-1))
-function monic!(ps::Vector{T}) where T
-    lambda = iszero(ps[end]) ? one(T) : 1 / ps[end]
-    ps .= ps .* lambda
-end
-
-function _mult(Gs, A)
-    for G in Gs
-        A = G * A
-    end
-    A
-end
-
-function qr_sylvester!(Gs, A0, k)
-
-        A = copy(A0)
-        m,n = size(A)
-        for i in m:-1:2
-            Gi, r = givens(A[1,1],A[i,1], 1, i)
-            A = Gi * A
-            push!(Gs, Gi)  # [G1, G2, ..., Gn]
-        end
-
-        for i in m:-1:3
-            Gi, r = givens(A[2,2],A[i,2], 2, i)
-            A = Gi * A
-            push!(Gs, Gi)
-        end
-        return A[1:2,1:2]
-end
-
-function qr_sylvester!(Gs, A0, k, R)
-    T = eltype(A0)
-    N = (k-1)
-    Zs = zeros(T, N)
-    B = vcat(hcat(Zs, Zs), A0)
-    B = _mult(Gs, B)
-    m,n = size(B)
-    s = isodd(k) ? -1 : +1
-    for i in m:-1:(2k)
-        Gi, r = givens(B[2(k-1)+1, 1],   B[i, 1], 2(k-1)+1, i)
-        B = Gi * B
-        push!(Gs, Gi)
-    end
-    for i in m:-1:(2k+1)
-            Gi, r = givens(B[2k, 2], B[i, 2], 2k, i)
-        B = Gi * B
-        push!(Gs, Gi)
-    end
-    #        #@show k, B
-    return [vcat(R, zeros(T, 2, 2*(k-1))) B[1:(2k),:]]
-end
-
-
-# return sigma, x
-# converge on smallest eigenvalue of (A'*A) using power rule
-# A=QR; (A'*A)^-1) = (R'*Q'*Q*R)^(-1) = (R'*R)^(-1)
-# instead of computing x_{i+1} = (R'*R)^{-1} xi; we solve R'y=xi; Rz=y;x=z/|z|
-function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=sqrt(eps(T))) where {T}
-
-
-    if iszero(det(R))
-        return zero(T), rand(10) # XXX
-
-        ## engineer
-        u = q
-        w = [one(T)]
-        v =  PolynomialZeros.AGCD.cauchy_matrix(u, length(p) - length(u) + 1) \ p; _monic(v)
-        return (:iszero, zero(T), T[])
-    end
-
-
-
-    m,n = size(R)
-    x = ones(T, n)
-    σ, σ1 = zero(T), Inf*one(T)
-
-    y = zeros(T, m)
-    z = zeros(T, n)
-
-
-    flag = :ispositive
-    for cnt in 1:100
-        y[:] = R' \ x
-        z[:] = R \ y
-        nz = 1/norm(z,2)
-        x[:] = z .* nz
-        sigma = norm(R * x, 2)
-        σ1 = abs(sigma)
-        #@show "rr", x, y, z
-        if σ1 < thresh
-            #@show R
-            flag = :ispossible
-            break
-        end
-        if  (abs((σ - σ1) / σ1) < 1.1)
-            #@show R
-            flag = :ispossible
-            break
-        end
-
-        σ = σ1
-    end
-
-    return (flag, σ1, x)
-end
-
-function agcd(ps::Vector{T}, qs::Vector{T}=_diff(ps); θ=sqrt(eps(T)), ρ=1e-2*θ) where {T}
-
-    monic!(ps); monic!(qs)
-    n, m = length(ps), length(qs)
-    A0 = [ps vcat(zeros(T, n-m),qs)]
+    A0 = R[ps vcat(zeros(T, n-m),qs)]
 
     nm = norm(ps, 2)
 
@@ -618,48 +619,46 @@ function agcd(ps::Vector{T}, qs::Vector{T}=_diff(ps); θ=sqrt(eps(T)), ρ=1e-2*�
     R =  qr_sylvester!(Gs, A0, k)
 
     while k <= m
-
         V = UpperTriangular(R)
         flag, sigma, x = smallest_eigval(V)
 
-#        #@show k, sigma, nm * θ
-        if flag == :iszero
+        if flag != :iszero &&  sigma < k * nm * θ# XXX
 
-            u = qs
-            w = ones(T, 1)
-            v = AGCD.cauchy_matrix(u, length(ps) - m + 1) \ ps
-            monic!(v)
-
-            return (u,v,w, zero(T))
-
-        end
-
-        if sigma < nm * θ # XXX
-#            #@show sigma
-            #return (k,x)
-#            x = monic!(x)
-            #@show x
-            v = x[2:2:end]; monic!(v)
-            w = x[3:2:end]; monic!(w)
-            A =  AGCD.cauchy_matrix(v, n - length(v) + 1)
-            #@show A, p
+            v = x[2:2:end]; _monic!(v)
+            w = x[3:2:end]; _monic!(w)
+            A =  cauchy_matrix(v, n - length(v) + 1)
             u = A \ ps
-            monic!(u)
+            _monic!(u)
 
-            wts = AGCD._weights(ps,qs)
-            #@show u,v,w,ps,qs,wts
-            ρm, flag = AGCD.reduce_residual!(u,v,w, ps, qs, wts, ρ)
-            #@show ρm, flag
+            wts = _weights(ps,qs)
+            ρm, flag = reduce_residual!(u,v,w, ps, qs, wts, ρ)
+
             if flag == :converged
                 return (u, v, w, ρm)
             end
 
         end
 
+        if flag == :iszero
+
+            u = qs
+            w = ones(T, 1)
+            v = cauchy_matrix(u, length(ps) - m + 1) \ ps
+            _monic!(v)
+
+            return (u,v,w, zero(T))
+
+        end
+
         # else bumpup k
         k += 1
+        if k > m
+            u = ones(T,1)
+            w = qs
+            v = ps
+            return (u, v, w, zero(T))
+        end
         R =  qr_sylvester!(Gs, A0, k, R)
-
     end
 end
 
