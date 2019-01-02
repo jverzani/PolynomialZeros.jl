@@ -24,7 +24,7 @@ poly_roots(f, domain)
 ```
 
 The polynomial, `f`, is specified through a function, a vector of
-coefficients (`p0, p1, ..., pn]`), or as a `Poly{T}` object, from the
+coefficients (`[p0, p1, ..., pn]`), or as a `Poly{T}` object, from the
 the `Polynomials.jl` package. The domain is specified by `Over.C` (the
 default), `Over.R`, `Over.Q`, `Over.Z`, or `over.Zp{p}`, with variants
 for specifying an underlying type.
@@ -41,11 +41,11 @@ julia> poly_roots(x -> x^4 - 1, Over.C)  # uses `roots` from `PolynomialRoots.jl
  -1.0+0.0im
 
 
-julia> poly_roots(x -> x^4 - 1, Over.R)  
+julia> poly_roots(x -> x^4 - 1, Over.R)
 2-element Array{Float64,1}:
   1.0
   -1.0
-  
+
 julia> poly_roots(x -> x^4 - 1, Over.Q) # uses `PolynomialFactors.jl`
 2-element Array{Rational{Int64},1}:
  -1//1
@@ -69,18 +69,39 @@ over the `BigFloat` type, we have:
 
 ```julia
 poly_roots(x -> x^4 - 1, Over.CC{BigFloat})  # `CC{BigFloat}` not just `C`
+using DoubleFloats  # significantly faster than BigFloat
+poly_roots(x -> x^4 - 1, Over.CC{Double64})
+4-element Array{Complex{DoubleFloat{Float64}},1}:
+                    1.0 + 0.0im
+                   -1.0 + 0.0im
+ -7.851872429582108e-35 - 1.0im
+ -7.851872429582108e-35 + 1.0im
 ```
 
 There are other methods for `Over.C`. This will use the AMVW method:
 
 ```
-julia> poly_roots(x -> x^4 - 1, Over.C, method=:amvw) 
+julia> poly_roots(x -> x^4 - 1, Over.C, method=:amvw) # might differ slightly
 4-element Array{Complex{Float64},1}:
- -1.8966567854390553e-17 - 0.9999999999999998im
- -1.8966567854390553e-17 + 0.9999999999999998im
-     -0.9999999999999999 + 0.0im               
-      1.0000000000000002 + 0.0im 
+ -2.1603591655723396e-16 - 0.9999999999999999im
+ -2.1603591655723396e-16 + 0.9999999999999999im
+                     1.0 + 0.0im
+                    -1.0 + 0.0im
 ```
+
+This method is useful for high-degree polynomials (cf. [FastPolynomialRoots](https://github.com/andreasnoack/FastPolynomialRoots.jl)):
+
+
+```
+n = 5000
+rs = poly_roots(randn(n+1))
+sum(isreal, rs) # 0
+sum(!isnan, rs) # 1 (should be n)
+rs = poly_roots(randn(n+1), method=:amvw)
+sum(isreal, rs)  # 6 ~  6.04... = 2/π*log(n) + 0.6257358072 + 2/(n*π)
+sum(!isnan, rs) # 5000 = n
+```
+
 
 
 ## Details
@@ -92,7 +113,9 @@ This package uses:
 numbers. The `Roots` package can also be used. As well, an
 implementation of the
 [AMVW](http://epubs.siam.org/doi/abs/10.1137/140983434) algorithm can
-be used. The default seems to be faster and as accurate as the others.
+be used. The default seems to be faster and as accurate as the others,
+but for very high degree polynomials, the `:amvw` method should be
+used, as it will be faster and more reliable.
 
 * The `PolynomialFactors` package to return roots over the
 rationals, integers, and integers modulo a prime.
@@ -129,5 +152,4 @@ The package also provides
   multiplicities. The `multroot` function is provided to handle this
   case a bit better. The function follows algorithms due to Zeng,
   "Computing multiple roots of inexact polynomials", Math. Comp. 74
-  (2005), 869-903. 
-
+  (2005), 869-903.
