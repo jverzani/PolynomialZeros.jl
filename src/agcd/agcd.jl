@@ -43,8 +43,9 @@ function _monic(p::Vector)
 end
 _float(p::Vector) = float(p)
 
-function _polymul(p::Vector{T}, q::Vector{S}) where {T,S}
-    R = promote_type(T,S)
+
+function _polymul(p::Vector{T}, q) where {T}
+    R = promote_type(T,eltype(q))
     n = length(p)-1
     m = length(q)-1
     a = zeros(R, m+n+1)
@@ -56,6 +57,7 @@ function _polymul(p::Vector{T}, q::Vector{S}) where {T,S}
     end
     a
 end
+
 function _polyder(p::Vector{T}) where {T}
     S = eltype(float(p[1]))
     n = length(p)
