@@ -45,22 +45,34 @@ function evalG(zs::Vector, ls::Vector)
 end
 
 ## get jacobian J_l(z), p16
-function evalJ(zs::Vector, ls::Vector)
+
+## get jacobian J_l(z), p16
+function evalJ!(J, zs::Vector{T}, ls::Vector) where {T}
     length(zs) == length(ls) || throw("Length mismatch")
-    m = length(zs)
 
-    u = prod([poly([z])^(l-1) for (z,l) in zip(zs, ls)]) ## Pi (1-z)^(l-1)
+    n, m = sum(ls), length(zs)
+    u = evalG(zs, ls .- 1)
+    pushfirst!(u, one(T))
 
-    J = zeros(eltype(zs), sum(ls), m)
+#    x = Polynomials.variable(T)
+#    u = prod((x-z)^(l-1) for (z,l) in zip(zs, ls))  # \prod (x-z_i)^l_i
+
+
     for j in 1:m
         s = -ls[j] * u
-        for i in 1:m
-            if i != j
-                s = s * poly([zs[i]])
-            end
+
+        for (l, zl) in zip(1:m, zs)
+            l == j && continue
+            s = AGCD._polymul(s, (one(T), -zl))
         end
-        J[:,j] = rcoeffs(s)
+    J[:,j] = s#rceffs(s)
     end
+    J
+end
+function evalJ(zs::Vector{T}, ls) where {T}
+    n, m = sum(ls), length(zs)
+    J = zeros(T, n, m)
+    evalJ!(J, zs, ls)
     J
 end
 
