@@ -8,7 +8,7 @@ include("../utils.jl")
 ## Polynomial root finder for polynomials with multiple roots
 ##
 ## Based on "Computing multiple roots of inexact polynomials"
-## http://www.neiu.edu/~zzeng/mathcomp/zroot.pdf
+## https://doi.org/10.1090/S0025-5718-04-01692-8
 ## Author: Zhonggang Zeng
 ## Journal: Math. Comp. 74 (2005), 869-903
 ##
@@ -29,7 +29,7 @@ monic(p) = p/p[end]
 rcoeffs(p) = reverse(p.a)
 function proots(zs)
     rs = PolynomialRoots.roots(zs)
-    if all(iszero.(imag(zs)))
+    if all(iszero.(imag(rs)))
         return real.(rs)
     else
         return rs
@@ -155,7 +155,7 @@ polynomial has multiplicities.
 Based on "Computing multiple roots of inexact polynomials"
 Zhonggang Zeng
 Journal: Math. Comp. 74 (2005), 869-903
-http://www.neiu.edu/~zzeng/mathcomp/zroot.pdf
+https://doi.org/10.1090/S0025-5718-04-01692-8
 
 Zeng has a MATLAB package `multroot`, from which this name is derived.
 
@@ -233,6 +233,7 @@ function multroot(ps::Vector{T};
 
     ## bookkeeping
     zs = proots(v_j)#roots(Poly(v_j))
+    N = length(zs)
     ls = ones(Int, length(zs))
 
     p0 = u_j
@@ -245,14 +246,14 @@ function multroot(ps::Vector{T};
             break
         end
 
-        u_j, v_j, w_j, residual= AGCD.agcd(p0, θ=θ, ρ=ρ)
+        u_j, v_j, w_j, residual= AGCD.agcd(p0, θ=θ, ρ=ρ, maxk=N+1)
 
 
         ## need to worry about residual between
         ## u0 * v0 - monic(p0) and u0 * w0 - monic(Polynomials.polyder(p0))
         ## resiudal tolerance grows with m, here it depends on
         ## initial value and previous residual times a growth tolerance, ϕ
-        ρ = max(ρ, ϕ * residual)
+        ρ = max(ρ, ϕ * abs(residual))
 
         ## update multiplicities
         for z in proots(v_j)#roots(Poly(v_j))

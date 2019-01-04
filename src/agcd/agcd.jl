@@ -230,6 +230,7 @@ residual_error(p,q,u,v,w, wts=ones(1 + length(p) + length(q))) = norm( ([_polymu
 # updates in place u,v,w
 function agcd_update!(p, q, A, b, inc, u, v, w, m, n, wts)
     JF!(A, u,v,w)
+
     Fmp!(b, p,q,u,v,w)
     weighted_least_square!(inc, A, b, wts)
 
@@ -348,7 +349,7 @@ end
 
     `agcd(p, q, θ=1e-8, ρ=1e-10)`
 
-Find an approximate GCD for polynomials `p` and `q` using an algorithm of [Zeng](http://www.ams.org/journals/mcom/2005-74-250/S0025-5718-04-01692-8/home.html).
+Find an approximate GCD for polynomials `p` and `q` using an algorithm of [Zeng](https://doi.org/10.1090/S0025-5718-04-01692-8).
 
 
 Returns u,v,w, err where:
@@ -371,7 +372,7 @@ The tolerances are:
 * ρ: initial residual tolerance. If we can get (u,v,w) error less than this, we stop
 
 The algorithm looks for the first `k` for which the corresponding
-sylvester matrix is rank deficient. This follows Lemma 2.4 of the paper, which
+Sylvester matrix is rank deficient. This follows Lemma 2.4 of the paper, which
 finds the smallest singular value. In the process, an estimate for
 `u`,`v`, and `w` is produced. If this singular value is approximately
 0 (as determined with the parameter θ) *and* the estimates of the
@@ -391,7 +392,7 @@ of `u`, `v`, and `w` are returned by `rank_k_agcd`.
 """
 function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
               θ=sqrt(eps(float(real(T)))),
-              ρ=1e-2*θ) where {T,S}
+              ρ=1e-2*θ, maxk=length(qs)) where {T,S}
 
     _monic!(ps); _monic!(qs)
     n, m = length(ps), length(qs)
@@ -400,19 +401,22 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
     A0 = R[ps vcat(zeros(T, n-m),qs)]
 
     nm = norm(ps, 2)
+    nm = sqrt(nm)  # paper has theta ||f|_2; but we  we use (||f||_2)^(1/2)
+    thresh = nm * θ ## this is sensitive
 
     Gs = Any[]
     k = 1
     R =  qr_sylvester!(Gs, A0, k)
+    x = zeros(T,1)
 
-    while k <= m
+    while k <=  maxk
         V = UpperTriangular(R)
         flag, sigma, x = smallest_eigval(V)
 
-        if flag != :iszero &&  sigma < k * nm * θ# XXX
+        if flag != :iszero &&  sigma < thresh
 
             v = x[2:2:end]; _monic!(v)
-            w = x[3:2:end]; _monic!(w)
+            w = x[(1+2(n-m)):2:end]; _monic!(w)
             A =  cauchy_matrix(v, n - length(v) + 1)
             u = A \ ps
             _monic!(u)
@@ -447,6 +451,19 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
         end
         R =  qr_sylvester!(Gs, A0, k, R)
     end
+
+    # Okay, we gave it a good shot, but didn't find a perfect candidate
+    # let's move on...
+    v = x[2:2:end]; _monic!(v)
+    w = x[3:2:end]; _monic!(w)
+    A =  cauchy_matrix(v, n - length(v) + 1)
+    u = A \ ps
+    _monic!(u)
+
+    wts = _weights(ps,qs)
+    ρm, flag = reduce_residual!(u,v,w, ps, qs, wts, ρ)
+    return (u, v, w, ρm)
+
 end
 
 

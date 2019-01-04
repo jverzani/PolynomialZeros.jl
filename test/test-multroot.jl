@@ -53,11 +53,17 @@ end
 
     T = Float32
     x = variable(T)
-    p = (x-1)^2 * (x-2)^2 * (x+3)^2
+    p = (x-1)^2 * (x-2)^2 * (x+3)^3
     u,v,w,err = AGCD.agcd(p)
-    @test length(v)-1 > 3   # Fails, tolerances are too strict
 
-    u,v,w,err = AGCD.agcd(p, θ=1e-4, ρ=1e-4)
-    @test length(v)-1 == 3
+    @test degree(v) == 3
+
+
+    T = BigFloat
+    x = variable(T)
+    p = (x-1)^2 * (x-2)^2 * (x+3)^3
+    u,v,w,err = AGCD.agcd(p^15)
+
+    @test degree(v) == 3 # fails for Float64
 
 end
