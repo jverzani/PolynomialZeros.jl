@@ -80,11 +80,11 @@ end
 ## G_l(z) = a, where a is related to monic version of polynomial p
 ## l is known multiplicity structure of polynomial p = (x-z1)^l1 * (x-z2)^l2 * ... * (x-zn)^ln
 ## Algorithm I, p17
-function pejroot(p::Poly, z0::Vector, l::Vector{Int};
+function pejroot(p::Poly, z0::Vector{T}, l::Vector{Int};
                  wts::Union{Vector, Nothing}=nothing, # weight vector
-                 tol = 1e-8,
+                 tol = sqrt(eps(float(real(T)))),
                  maxsteps = 100
-                      )
+                 ) where {T}
 
     a = p2a(p) #rcoeffs(monic(p))[2:end] # an_1, an_2, ..., a2, a1, a0
 
@@ -204,40 +204,39 @@ multroot(p)
 ## ([1.0], [3])
 ```
 """
-function multroot(p::Poly;
-                  θ::Real=1e-8,  #
-                  ρ::Real=1e-10, # initial residual tolerance
-                  ϕ::Real=1e2,   # residual tolerance growth factor
-                  δ::Real=1e-8   # passed to solve y sigma
+function multroot(ps::Vector{T};
+                  θ::Real=sqrt(eps(real(T))),  #
+                  ρ::Real=(1/100) * sqrt(eps(real(T))), # initial residual tolerance
+                  ϕ::Real=100.0,   # residual tolerance growth factor
+                  δ::Real=sqrt(eps(real(T)))  # passed to solve y sigma
+                  ) where {T}
 
-                  )
+    p = float.(ps[1:findlast(!iszero,ps)])
+    AGCD._degree(p) == 0 && error("Degree of `p` must be atleast 1")
 
-    Polynomials.degree(p) == 0 && error("Degree of `p` must be atleast 1")
+#    if Polynomials.degree(p) == 1
+#        return (roots(p), [1])
+#    end
 
-    if Polynomials.degree(p) == 1
-        return (roots(p), [1])
-    end
 
-    p = Poly(float(coeffs(p)))  # floats, not Int
-
-    u_j, v_j, w_j, residual= AGCD.agcd(p, polyder(p), θ=θ,  ρ=ρ)
+    u_j, v_j, w_j, residual= AGCD.agcd(p, θ=θ,  ρ=ρ)
     ρ = max(ρ, ϕ * residual)
 
     ## bookkeeping
-    zs = roots(v_j)
+    zs = roots(Poly(v_j))
     ls = ones(Int, length(zs))
 
     p0 = u_j
 
     while Polynomials.degree(p0) > 0
         if Polynomials.degree(p0) == 1
-            z = roots(p0)[1]
+            z = roots(Poly(p0))[1]
             tmp, ind = findmin(abs.(zs .- z))
             ls[ind] = ls[ind] + 1
             break
         end
 
-        u_j, v_j, w_j, residual= AGCD.agcd(p0, polyder(p0), θ=θ, ρ=ρ)
+        u_j, v_j, w_j, residual= AGCD.agcd(p0, θ=θ, ρ=ρ)
 
         ## need to worry about residual between
         ## u0 * v0 - monic(p0) and u0 * w0 - monic(Polynomials.polyder(p0))
@@ -246,7 +245,7 @@ function multroot(p::Poly;
         ρ = max(ρ, ϕ * residual)
 
         ## update multiplicities
-        for z in roots(v_j)
+        for z in roots(Poly(v_j))
             tmp, ind = findmin(abs.(zs .- z))
             ls[ind] = ls[ind] + 1
         end
@@ -259,15 +258,16 @@ function multroot(p::Poly;
     if maximum(ls) == 1
         return (zs, ls)
     else
-        zs = pejroot(p, zs, ls)
+        zs = pejroot(Poly(p), zs, ls)
         return (zs, ls)
     end
 end
 
 ## Different interfaces
 
-## can pass in vector too
-multroot(p::Vector{T}; kwargs...) where {T <: Real} = multroot(Poly(p); kwargs...)
+## can pass in Poly too
+multroot(p::Poly; kwargs...) = multroot(coeffs(p); kwargs...)
+
 
 ## Can pass in function
 function multroot(f::Function; kwargs...)

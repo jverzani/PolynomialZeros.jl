@@ -389,7 +389,9 @@ of `u`, `v`, and `w` are returned by `rank_k_agcd`.
 
 
 """
-function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps); θ=sqrt(eps(float(real(T)))), ρ=1e-2*θ) where {T,S}
+function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
+              θ=sqrt(eps(float(real(T)))),
+              ρ=1e-2*θ) where {T,S}
 
     _monic!(ps); _monic!(qs)
     n, m = length(ps), length(qs)
@@ -512,15 +514,13 @@ end
 
 ## -----------------
 
-function agcd(p0::Poly{T}, q0::Poly{S}=polyder(p0);
-              θ = 1e-8,
-              ρ = 1e-10) where {T <: Number,S <: Number}
+function agcd(p0::Poly{T}, q0::Poly{S}=polyder(p0); kwargs...) where {T <: Number,S <: Number}
 
     p, q = _float(p0), _float(q0)
 
     p, q, phi, alpha = precondition(p, q)
 
-    u0,v0,w0,err = agcd(p.a, q.a; θ=θ, ρ=ρ)
+    u0,v0,w0,err = agcd(coeffs(p), coeffs(q); kwargs...)
     u,v,w = Poly(u0), Poly(v0), Poly(w0)
 
     x = (1/phi) * variable(p) # reverse preconditioning
