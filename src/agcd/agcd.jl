@@ -229,7 +229,7 @@ residual_error(p,q,u,v,w, wts=ones(1 + length(p) + length(q))) = norm( ([_polymu
 ## Newton's method and weighted least squares
 # updates in place u,v,w
 function agcd_update!(p, q, A, b, inc, u, v, w, m, n, wts)
-    JF!(A, u, v, w)
+    JF!(A, u,v,w)
     Fmp!(b, p,q,u,v,w)
     weighted_least_square!(inc, A, b, wts)
 
@@ -244,7 +244,7 @@ function agcd_update!(p, q, A, b, inc, u, v, w, m, n, wts)
 
     # return error estimate
     err = residual_error(p,q,u,v,w, wts)
-#    println("err=$err")
+
     err
 end
 

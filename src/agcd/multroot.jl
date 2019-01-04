@@ -1,5 +1,6 @@
 module MultRoot
 using Polynomials
+import PolynomialRoots
 using LinearAlgebra
 include("../utils.jl")
 ## The main function here is `MultRoot.multroot`
@@ -23,10 +24,18 @@ include("../utils.jl")
 ## improve the root estimates from algorithm II (roots(v)). The pejorative manifold is defined by
 ## the multiplicities l and is operationalized in evalG and evalJ from Zeng's paper.
 
-using Polynomials
 using ..AGCD
 monic(p) = p/p[end]
 rcoeffs(p) = reverse(p.a)
+function proots(zs)
+    rs = PolynomialRoots.roots(zs)
+    if all(iszero.(imag(zs)))
+        return real.(rs)
+    else
+        return rs
+    end
+end
+
 
 ## map monic(p) to a point in C^n
 ## p = 1x^n + a1x^n-1 + ... + an_1 x + an -> (a1,a2,...,an)
@@ -223,20 +232,21 @@ function multroot(ps::Vector{T};
     ρ = max(ρ, ϕ * residual)
 
     ## bookkeeping
-    zs = roots(Poly(v_j))
+    zs = proots(v_j)#roots(Poly(v_j))
     ls = ones(Int, length(zs))
 
     p0 = u_j
 
     while Polynomials.degree(p0) > 0
         if Polynomials.degree(p0) == 1
-            z = roots(Poly(p0))[1]
+            z = proots(p0)[1] #roots(Poly(p0))[1]
             tmp, ind = findmin(abs.(zs .- z))
             ls[ind] = ls[ind] + 1
             break
         end
 
         u_j, v_j, w_j, residual= AGCD.agcd(p0, θ=θ, ρ=ρ)
+
 
         ## need to worry about residual between
         ## u0 * v0 - monic(p0) and u0 * w0 - monic(Polynomials.polyder(p0))
@@ -245,7 +255,7 @@ function multroot(ps::Vector{T};
         ρ = max(ρ, ϕ * residual)
 
         ## update multiplicities
-        for z in roots(Poly(v_j))
+        for z in proots(v_j)#roots(Poly(v_j))
             tmp, ind = findmin(abs.(zs .- z))
             ls[ind] = ls[ind] + 1
         end
