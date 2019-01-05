@@ -396,18 +396,20 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
 
     _monic!(ps); _monic!(qs)
     n, m = length(ps), length(qs)
+    wts = _weights(ps,qs)
 
     R = promote_type(T,S)
-    A0 = R[ps vcat(zeros(T, n-m),qs)]
+    A0::Matrix{T} = R[ps vcat(zeros(T, n-m),qs)]
 
     nm = norm(ps, 2)
-    nm = sqrt(nm)  # paper has theta ||f|_2; but we  we use (||f||_2)^(1/2)
+    nm = sqrt(nm)  # paper has theta ||f|!_2; but we  we use (||f||_2)^(1/2)
     thresh = nm * θ ## this is sensitive
 
-    Gs = Any[]
+    Gs = LinearAlgebra.Givens{T}[]
     k = 1
-    R =  qr_sylvester!(Gs, A0, k)
-    x = zeros(T,1)
+    R = qr_sylvester!(Gs, A0, k)
+
+    local x::Vector{T}
 
     while k <=  maxk
         V = UpperTriangular(R)
@@ -421,7 +423,7 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
             u = A \ ps
             _monic!(u)
 
-            wts = _weights(ps,qs)
+
             ρm, flag = reduce_residual!(u,v,w, ps, qs, wts, ρ)
 
             if flag == :converged

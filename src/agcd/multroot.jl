@@ -24,6 +24,9 @@ include("../utils.jl")
 ## improve the root estimates from algorithm II (roots(v)). The pejorative manifold is defined by
 ## the multiplicities l and is operationalized in evalG and evalJ from Zeng's paper.
 
+## JV: This does not achieve the accuracy that the paper reports
+## For example,
+
 using ..AGCD
 monic(p) = p/p[end]
 rcoeffs(p) = reverse(p.a)
@@ -43,6 +46,11 @@ function p2a(p::Poly)
     p = monic(p)
     rcoeffs(p)[2:end]
 end
+function p2a(p::Vector{T}) where {T}
+    a,pn = reverse(p[1:end-1]),p[end]
+    a .* (1/p[end])
+end
+
 
 ## get value of gl(z). From p16
 function evalG(zs::Vector, ls::Vector)
@@ -89,7 +97,8 @@ end
 ## G_l(z) = a, where a is related to monic version of polynomial p
 ## l is known multiplicity structure of polynomial p = (x-z1)^l1 * (x-z2)^l2 * ... * (x-zn)^ln
 ## Algorithm I, p17
-function pejroot(p::Poly, z0::Vector{T}, l::Vector{Int};
+pejroot(p::Poly, z0, ls; kwargs...) = pejroot(coeffs(p), z0, ls; kwargs...)
+function pejroot(p::Vector{T}, z0::Vector{T}, l::Vector{Int};
                  wts::Union{Vector, Nothing}=nothing, # weight vector
                  tol = sqrt(eps(float(real(T)))),
                  maxsteps = 100
@@ -119,7 +128,7 @@ function pejroot(p::Poly, z0::Vector{T}, l::Vector{Int};
         delta = norm(zk1 - zk, 2)
 
         if delta > deltaold
-            @info "Growing delta. Best guess is being returned."
+            @debug "Growing delta. Best guess is being returned."
             break
         end
 
@@ -134,7 +143,7 @@ function pejroot(p::Poly, z0::Vector{T}, l::Vector{Int};
     end
 
     if !cvg @info ("""
-Returning the initial estimates, as the
+Returning the initial estimates, as the `pejroot`
 algorithm failed to improve estimates for the roots on the given
 pejorative manifold.
 """)
@@ -269,7 +278,7 @@ function multroot(ps::Vector{T};
     if maximum(ls) == 1
         return (zs, ls)
     else
-        zs = pejroot(Poly(p), zs, ls)
+        zs = pejroot(p, zs, ls)
         return (zs, ls)
     end
 end
