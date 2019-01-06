@@ -230,10 +230,11 @@ residual_error(p,q,u,v,w, wts=ones(1 + length(p) + length(q))) = norm( ([_polymu
 ## Newton's method and weighted least squares
 # updates in place u,v,w
 function agcd_update!(p, q, u,v,w,m,n, A, b, inc, up, vp, wp, wts, err0)
-    JF!(A, u,v,w)
 
+    JF!(A, u,v,w)
     Fmp!(b, p,q,u,v,w)
     weighted_least_square!(inc, A, b, wts)
+
     Δu = inc[1:(1+m)]
     Δv = inc[(m+2):(m+n+2)]
     Δw = inc[(m+n+3):end]
@@ -246,7 +247,7 @@ function agcd_update!(p, q, u,v,w,m,n, A, b, inc, up, vp, wp, wts, err0)
 
     err = residual_error(p,q,up,vp,wp, wts)
 
-    # update if we improve
+    # update if we improve(ish)
     if err  < 1.1*err0
         u .= up; v .= vp; w .= wp
     end
@@ -342,7 +343,7 @@ function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=sqrt(eps())
             flag = :ispossible
             break
         end
-        if  abs(σ - σ1)  < 1.01 * σ1
+        if  abs(σ - σ1)  < 1.1 * σ1
             flag = :ispossible
             break
         end
