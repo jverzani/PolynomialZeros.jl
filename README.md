@@ -153,3 +153,17 @@ The package also provides
   case a bit better. The function follows algorithms due to Zeng,
   "Computing multiple roots of inexact polynomials", Math. Comp. 74
   (2005), 869-903.
+
+```
+x = variable(Float64)
+p = (x-1)^4 * (x-2)^3 * (x-3)^2 * (x-4)
+q = polyder(p)
+gcd(p,q) # should be (x-1)^3 * (x-2)^2 * (x-3), but is a constant
+u,v,w,resid = PolynomialZeros.AGCD.agcd(p,q)
+LinearAlgebra.norm(u - (x-1)^3*(x-2)^2*(x-3), Inf)  ~ 3.8e-6
+```
+
+```
+poly_roots(p) # 2 real, 8 complex
+PolynomialZeros.MultRoot.multroot(p) # ([4.0,3.0,2.0,1.0], [1, 2, 3, 4])
+```

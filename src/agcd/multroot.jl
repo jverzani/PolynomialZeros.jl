@@ -24,8 +24,6 @@ include("../utils.jl")
 ## improve the root estimates from algorithm II (roots(v)). The pejorative manifold is defined by
 ## the multiplicities l and is operationalized in evalG and evalJ from Zeng's paper.
 
-## JV: This does not achieve the accuracy that the paper reports
-## For example,
 
 using ..AGCD
 monic(p) = p/p[end]
@@ -98,58 +96,116 @@ end
 ## l is known multiplicity structure of polynomial p = (x-z1)^l1 * (x-z2)^l2 * ... * (x-zn)^ln
 ## Algorithm I, p17
 pejroot(p::Poly, z0, ls; kwargs...) = pejroot(coeffs(p), z0, ls; kwargs...)
-function pejroot(p::Vector{T}, z0::Vector{T}, l::Vector{Int};
+function pejroot(p::Vector{T}, z0::Vector{S}, l::Vector{Int};
                  wts::Union{Vector, Nothing}=nothing, # weight vector
-                 tol = sqrt(eps(float(real(T)))),
+                 tol = sqrt(eps(T)),                   # no T dependence
                  maxsteps = 100
-                 ) where {T}
+                 ) where {T, S <: Union{T, Complex{T}}}
 
-    a = p2a(p) #rcoeffs(monic(p))[2:end] # an_1, an_2, ..., a2, a1, a0
 
+    a = p2a(p)
+    λ = min(sqrt(eps(T)), norm(p,2) * eps(T)^(2/3))
     if wts == nothing
-        wts = map(u -> min(1, 1/abs.(u)), a)
+        wts = map(aj -> min(1, 1/abs(aj)), a)
     end
 
     ## Solve WJ Δz = W(Gl(z) - a) in algorithm I
-#    G(z) = (evalG(z, l) - a)
-#    update(z, l) = z -  AGCD.weighted_least_square(evalJ(z,l), G(z), wts)
-
-    G = z -> evalG(z,l) - a
-
     zk = copy(z0);
-    zk1 = zk - AGCD.weighted_least_square(evalJ(zk,l), G(zk), wts)
-    deltaold = norm(zk1 - zk,2)
-    zk = zk1
+    J = evalJ(zk, l)
+
+    deltak = AGCD.weighted_least_square(J, evalG(zk,l).-a, wts)
+    zk .-=  deltak
+    δ0 = norm(deltak, 2)
 
     cvg = false
+
     for ctr in 1:maxsteps
 
-        zk1 = zk - AGCD.weighted_least_square(evalJ(zk,l), G(zk), wts)
-        delta = norm(zk1 - zk, 2)
+        AGCD.weighted_least_square!(deltak, evalJ!(J, zk,l), evalG(zk,l).-a, wts)
+        zk .-= deltak
+        δ1 = norm(deltak, 2)
 
-        if delta > deltaold
+
+        Δ = δ0 - δ1
+
+        if Δ < 0 && ctr > 2
             @debug "Growing delta. Best guess is being returned."
             break
         end
 
         ## add extra abs(delta) < 100*eps() condition
-        if delta^2 / (deltaold - delta) < tol || abs(delta) < 100*eps()
+        if δ1^2 < Δ * tol# || δ1 < λ
             cvg = true
             break
         end
 
-        deltaold = delta
-        zk=zk1
+        δ0 = δ1
     end
 
-    if !cvg @info ("""
-Returning the initial estimates, as the `pejroot`
-algorithm failed to improve estimates for the roots on the given
-pejorative manifold.
-""")
+    if !cvg @info ("""The multiplicity count may be in error--the initial guess for the roots failed to improve when refined along the pejorative manifold.""")
         return(z0)
     end
-    return(zk1)
+    return(zk)
+end
+
+
+"""
+        identify_z0s_ls(p; ...)
+
+Step one of the algorithm identifies initial guesses for the roots and
+identifies the pejorative manifold.
+
+"""
+function identify_z0s_ls(p::Vector{T};
+                         θ::Real=sqrt(eps()),  # no T dependence
+                         ρ::Real=(1/100) * sqrt(eps()), # initial residual tolerance
+                         ϕ::Real=100.0,   # residual tolerance growth factor
+                         δ::Real=sqrt(eps())  # passed to solve y sigma
+                         ) where {T}
+
+
+
+    u_j, v_j, w_j, residual= AGCD.agcd(p, θ=θ,  ρ=ρ)
+
+    ρ = max(ρ, ϕ * residual)
+
+    ## bookkeeping
+    zs = proots(v_j)
+    N = length(zs)
+    ls = ones(Int, length(zs))
+
+    p0 = u_j
+
+    while Polynomials.degree(p0) > 0
+
+        if Polynomials.degree(p0) == 1
+            z = proots(p0)[1]
+            tmp, ind = findmin(abs.(zs .- z))
+            ls[ind] = ls[ind] + 1
+            break
+        end
+
+
+        u_j, v_j, w_j, residual= AGCD.agcd(p0, θ=θ, ρ=ρ, maxk=N+1)
+
+        ## need to worry about residual between
+        ## u0 * v0 - monic(p0) and u0 * w0 - monic(Polynomials.polyder(p0))
+        ## resiudal tolerance grows with m, here it depends on
+        ## initial value and previous residual times a growth tolerance, ϕ
+        ρ = max(ρ, ϕ * abs(residual))
+
+        ## update multiplicities
+        for z in proots(v_j)#roots(Poly(v_j))
+            tmp, ind = findmin(abs.(zs .- z))
+            ls[ind] = ls[ind] + 1
+        end
+
+        ## rename
+        p0 = u_j
+    end
+
+    zs, ls
+
 end
 
 """
@@ -223,64 +279,29 @@ multroot(p)
 ```
 """
 function multroot(ps::Vector{T};
-                  θ::Real=sqrt(eps(real(T))),  #
-                  ρ::Real=(1/100) * sqrt(eps(real(T))), # initial residual tolerance
+                  θ::Real=sqrt(eps()),  # no T
+                  ρ::Real=(1/100) * sqrt(eps()), # initial residual tolerance
                   ϕ::Real=100.0,   # residual tolerance growth factor
-                  δ::Real=sqrt(eps(real(T)))  # passed to solve y sigma
+                  δ::Real=sqrt(eps())  # passed to solve y sigma
                   ) where {T}
 
     p = float.(ps[1:findlast(!iszero,ps)])
+
+    # simple cases
     AGCD._degree(p) == 0 && error("Degree of `p` must be atleast 1")
-
-#    if Polynomials.degree(p) == 1
-#        return (roots(p), [1])
-#    end
-
-
-    u_j, v_j, w_j, residual= AGCD.agcd(p, θ=θ,  ρ=ρ)
-    ρ = max(ρ, ϕ * residual)
-
-    ## bookkeeping
-    zs = proots(v_j)#roots(Poly(v_j))
-    N = length(zs)
-    ls = ones(Int, length(zs))
-
-    p0 = u_j
-
-    while Polynomials.degree(p0) > 0
-        if Polynomials.degree(p0) == 1
-            z = proots(p0)[1] #roots(Poly(p0))[1]
-            tmp, ind = findmin(abs.(zs .- z))
-            ls[ind] = ls[ind] + 1
-            break
-        end
-
-        u_j, v_j, w_j, residual= AGCD.agcd(p0, θ=θ, ρ=ρ, maxk=N+1)
-
-
-        ## need to worry about residual between
-        ## u0 * v0 - monic(p0) and u0 * w0 - monic(Polynomials.polyder(p0))
-        ## resiudal tolerance grows with m, here it depends on
-        ## initial value and previous residual times a growth tolerance, ϕ
-        ρ = max(ρ, ϕ * abs(residual))
-
-        ## update multiplicities
-        for z in proots(v_j)#roots(Poly(v_j))
-            tmp, ind = findmin(abs.(zs .- z))
-            ls[ind] = ls[ind] + 1
-        end
-
-        ## rename
-        p0 = u_j
+    if AGCD._degree(p) == 1
+        return (-p[1:1]/p[end], [1])
     end
 
+    # two steps
+    zs, ls = identify_z0s_ls(p, θ=θ, ρ=ρ, ϕ=ϕ, δ=δ)
 
-    if maximum(ls) == 1
-        return (zs, ls)
-    else
+    if maximum(ls) > 1
         zs = pejroot(p, zs, ls)
-        return (zs, ls)
     end
+
+    return (zs, ls)
+
 end
 
 ## Different interfaces

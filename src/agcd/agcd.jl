@@ -147,10 +147,10 @@ function _weights(p::Vector{T},q) where {T}
     n, m = length(p), length(q)
     wts = ones(T, 1 + n + m)
     for (i,pj) in enumerate(p)
-        wts[1+i] = 1/max(1, abs(pj))
+        wts[1+i] = min(one(real(T)), inv(abs(pj)))
     end
     for (i,qj) in enumerate(q)
-        wts[1 + n+i] = 1/max(1, abs(qj))
+        wts[1 + n + i] = min(one(real(T)), inv(abs(qj)))
     end
     wts
 end
@@ -162,28 +162,29 @@ function reduce_residual!(u,v,w, p::Vector{T}, q, wts, ρ) where {T}
     # preallocate
     A = zeros(T, JF_size(u, v, w)...)
     b = zeros(T, 1 + length(p) + length(q))
+    up,vp,wp = copy(u),copy(v),copy(w)
+
     inc = zeros(T, m + n + l + 3) #weighted_least_square(A, b, wts)
 
     ρm_1, ρm = Inf, Inf
-    MAXSTEPS = 20
+    MAXSTEPS = 5
     ctr = 0
     flag = :not_converged
 
 
 
     while ctr <= MAXSTEPS
-        ρm =  agcd_update!(p, q, A, b, inc, u, v, w, m, n, wts)
-        np2 = norm(p,2)
-        nu2 = norm(u,2)
+        ρm =  agcd_update!(p, q, u,v,w, m, n, A, b, inc, up, vp, wp, wts, ρm_1)
 
         if ρm > 1.5 * ρm_1
             return (ρm, flag)
         end
+
         # threshold here is really important, but not clear what it should be
         # we empirically get better results---it seems---with sqrt(norm(p,2))
         # though recomendation if norm(u,2); Might also make sense to include
         # q in the computation
-        if ρm <= ρ * norm(u,2) #sqrt(norm(p,2))
+        if ρm <= ρ * norm(u,2)
             flag = :converged
             return (ρm, flag)
         end
@@ -228,23 +229,31 @@ residual_error(p,q,u,v,w, wts=ones(1 + length(p) + length(q))) = norm( ([_polymu
 ### refine u,v,w estimate using
 ## Newton's method and weighted least squares
 # updates in place u,v,w
-function agcd_update!(p, q, A, b, inc, u, v, w, m, n, wts)
+function agcd_update!(p, q, u,v,w,m,n, A, b, inc, up, vp, wp, wts, err0)
     JF!(A, u,v,w)
 
     Fmp!(b, p,q,u,v,w)
     weighted_least_square!(inc, A, b, wts)
-
     Δu = inc[1:(1+m)]
     Δv = inc[(m+2):(m+n+2)]
     Δw = inc[(m+n+3):end]
 
-    u .-= Δu; _monic!(u)
-    v .-= Δv; _monic!(v)
-    w .-= Δw; _monic!(w)
+    up .- u; vp .= v; wp .= w
+
+    up .-=  Δu; _monic!(up)
+    vp .-=  Δv; _monic!(vp)
+    wp .-=  Δw; _monic!(wp)
+
+    err = residual_error(p,q,up,vp,wp, wts)
+
+    # update if we improve
+    if err  < 1.1*err0
+        u .= up; v .= vp; w .= wp
+    end
 
 
     # return error estimate
-    err = residual_error(p,q,u,v,w, wts)
+
 
     err
 end
@@ -302,38 +311,38 @@ end
 # converge on smallest eigenvalue of (A'*A) using power rule
 # A=QR; (A'*A)^-1) = (R'*Q'*Q*R)^(-1) = (R'*R)^(-1)
 # instead of computing x_{i+1} = (R'*R)^{-1} xi; we solve R'y=xi; Rz=y;x=z/|z|
-function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=sqrt(eps(real(T)))) where {T}
-
+function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=sqrt(eps())) where {T}
 
     if iszero(det(R))
-
-        ## engineer
         return (:iszero, zero(T), T[])
     end
 
-
-
     m,n = size(R)
-    x = ones(T, n)
-    σ, σ1 = zero(T), Inf*one(T)
 
+    x = ones(T, n)
     y = zeros(T, m)
     z = zeros(T, n)
-
+    σ, σ1 = Inf*one(real(T)), Inf*one(real(T))
 
     flag = :ispositive
-    for cnt in 1:100
-        y[:] = R' \ x
-        z[:] = R \ y
+    for cnt in 1:10
+        y .= R' \ x
+        z .= R  \ y
         nz = 1/norm(z,2)
-        x[:] = z .* nz
+        x .= z .* nz
         sigma = norm(R * x, 2)
         σ1 = abs(sigma)
+
+        if σ1 < 1/10 * σ
+            σ = σ1
+            continue
+        end
+
         if σ1 < thresh
             flag = :ispossible
             break
         end
-        if  (abs((σ - σ1) / σ1) < 1.1)
+        if  abs(σ - σ1)  < 1.01 * σ1
             flag = :ispossible
             break
         end
@@ -347,7 +356,7 @@ end
 
 """
 
-    `agcd(p, q, θ=1e-8, ρ=1e-10)`
+    `agcd(p, q, θ=sqrt(eps()), ρ=1e-2*θ)`
 
 Find an approximate GCD for polynomials `p` and `q` using an algorithm of [Zeng](https://doi.org/10.1090/S0025-5718-04-01692-8).
 
@@ -391,7 +400,7 @@ of `u`, `v`, and `w` are returned by `rank_k_agcd`.
 
 """
 function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
-              θ=sqrt(eps(float(real(T)))),
+              θ=sqrt(eps()),  # no T dependence
               ρ=1e-2*θ, maxk=length(qs)) where {T,S}
 
     _monic!(ps); _monic!(qs)
@@ -424,7 +433,7 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
             _monic!(u)
 
 
-            ρm, flag = reduce_residual!(u,v,w, ps, qs, wts, ρ)
+            ρm, flag = reduce_residual!(u, v, w, ps, qs, wts, ρ)
 
             if flag == :converged
                 return (u, v, w, ρm)

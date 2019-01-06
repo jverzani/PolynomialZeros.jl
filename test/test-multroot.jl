@@ -67,3 +67,114 @@ end
     @test degree(v) == 3 # fails for Float64
 
 end
+
+## INtegrate this in...
+using Test
+using Polynomials, PolynomialZeros
+multroot=PolynomialZeros.MultRoot.multroot
+pejroot=PolynomialZeros.MultRoot.pejroot
+agcd = PolynomialZeros.AGCD.agcd
+identify_z0s_ls = PolynomialZeros.MultRoot.identify_z0s_ls
+
+x = variable()
+_poly(zs,ls) = prod((x-z)^l for (z,l) in zip(zs, ls))
+
+@testset "multroot" begin
+zs, ls = [1.0,2,3,4], [4,3,2,1]
+_zs, _ls = multroot(_poly(zs, ls))
+@test all(sort(ls) .== sort(_ls))
+
+_zs, _ls = multroot(_poly(zs, 2ls))
+@test !all(sort(2ls) .== sort(_ls)) # fails!
+
+_zs, _ls = multroot(_poly(zs/10, 2ls))
+@test all(sort(2ls) .== sort(_ls)) # passes
+
+_zs, _ls = multroot(_poly(big.(zs), 2ls))
+@test all(sort(2ls) .== sort(_ls)) # passes
+
+
+delta = 0.1
+zs, ls = [1-delta, 1, 1+delta], [5,4,3]
+_zs, _ls = multroot(_poly(zs, ls))
+@test all(sort(ls) .== sort(_ls))
+
+n = 20
+zs,ls = collect(1.0:n), ones(Int, n)
+_zs, _ls = multroot(_poly(zs, ls))
+@test all(sort(ls) .== sort(_ls))
+
+_zs, _ls = multroot(_poly(zs, 2ls))
+@test !(length(ls) == length(_ls))
+
+n = 10
+zs,ls = collect(1.0:n), ones(Int, n)
+_zs, _ls = multroot(_poly(zs, 2ls)) #fails *badly*
+if length(_ls) == length(ls)
+    @test !all(sort(2ls) .== sort(_ls))
+else
+    @info "fails badly"
+end
+
+n = 5
+zs,ls = collect(1.0:n), ones(Int, n)
+_zs, _ls = multroot(_poly(zs, 2ls)) #fails *badly*
+if length(_ls) == length(ls)
+    @test all(sort(2ls) .== sort(_ls))
+else
+    @info "fails badly"
+end
+
+end
+
+@testset "pejroot" begin
+
+
+zs, ls = [1.0,2,3,4], [4,3,2,1]
+p = _poly(zs, ls)
+
+delta = 0.1 # works
+z0 = zs + delta*[1,-1,1,-1]
+z1 = pejroot(p, z0, ls)
+@test !all(sort(z0) .== sort(z1))
+
+delta = 0.2 # fails
+z0 = zs + delta*[1,-1,1,-1]
+z1 = pejroot(p, z0, ls)
+@test all(sort(z0) .== sort(z1))
+
+ls = [30,20,10,5]
+p = _poly(zs, ls)
+
+delta = 0.01 # works
+z0 = zs + delta*[1,-1,1,-1]
+z1 = pejroot(p, z0, ls)
+@test !all(sort(z0) .== sort(z1))
+
+end
+
+@testset "identify_ls" begin
+
+
+    zs, ls = [1.0,2,3,4], [4,3,2,1]
+    p = _poly(zs, ls)
+    _zs, _ls = identify_z0s_ls(coeffs(p))
+    @test all(sort(ls) .== sort(_ls))
+
+    p = _poly(zs, 2*ls)
+    _zs, _ls = identify_z0s_ls(coeffs(p))
+    @test !all(sort(2*ls) .== sort(_ls))
+
+    n = 4
+    zs, ls = cumsum(ones(n)), cumsum(ones(Int, n))
+    p = _poly(zs, ls)
+    _zs, _ls = identify_z0s_ls(coeffs(p))
+    @test all(sort(ls) .== sort(_ls))
+
+    n = 5
+    zs, ls = cumsum(ones(n)), cumsum(ones(Int, n))
+    p = _poly(zs, ls)
+    _zs, _ls = identify_z0s_ls(coeffs(p))
+    @test !all(sort(ls) .== sort(_ls))
+
+end
