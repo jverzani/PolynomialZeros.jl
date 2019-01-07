@@ -54,7 +54,7 @@ end
     T = Float32
     x = variable(T)
     p = (x-1)^2 * (x-2)^2 * (x+3)^3
-    u,v,w,err = AGCD.agcd(p)
+    u,v,w,err = AGCD.agcd(p, θ=1e-4)
 
     @test degree(v) == 3
 
@@ -84,14 +84,12 @@ zs, ls = [1.0,2,3,4], [4,3,2,1]
 _zs, _ls = multroot(_poly(zs, ls))
 @test all(sort(ls) .== sort(_ls))
 
-_zs, _ls = multroot(_poly(zs, 2ls))
+_zs, _ls = multroot(_poly(zs, 3ls))
 @test !all(sort(2ls) .== sort(_ls)) # fails!
 
-_zs, _ls = multroot(_poly(zs/10, 2ls))
-@test all(sort(2ls) .== sort(_ls)) # passes
 
-_zs, _ls = multroot(_poly(big.(zs), 2ls))
-@test all(sort(2ls) .== sort(_ls)) # passes
+_zs, _ls = multroot(_poly(big.(zs), 3ls))
+@test all(sort(3ls) .== sort(_ls)) # passes
 
 
 delta = 0.1
@@ -161,20 +159,20 @@ end
     _zs, _ls = identify_z0s_ls(coeffs(p))
     @test all(sort(ls) .== sort(_ls))
 
-    p = _poly(zs, 2*ls)
+    p = _poly(zs, 3*ls)
     _zs, _ls = identify_z0s_ls(coeffs(p))
-    @test !all(sort(2*ls) .== sort(_ls))
-
-    n = 4
-    zs, ls = cumsum(ones(n)), cumsum(ones(Int, n))
-    p = _poly(zs, ls)
-    _zs, _ls = identify_z0s_ls(coeffs(p))
-    @test all(sort(ls) .== sort(_ls))
+    @test !all(sort(3*ls) .== sort(_ls))
 
     n = 5
     zs, ls = cumsum(ones(n)), cumsum(ones(Int, n))
     p = _poly(zs, ls)
     _zs, _ls = identify_z0s_ls(coeffs(p))
-    @test !all(sort(ls) .== sort(_ls))
+    @test all(sort(ls) .== sort(_ls))
+
+    n = 6
+    zs, ls = cumsum(ones(n)), cumsum(ones(Int, n))
+    p = _poly(zs, ls)
+    _zs, _ls = identify_z0s_ls(coeffs(p))
+    @test length(ls) != length(_ls) #all(sort(ls) .== sort(_ls))
 
 end

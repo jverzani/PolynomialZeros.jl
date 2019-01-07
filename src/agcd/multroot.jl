@@ -158,27 +158,49 @@ identifies the pejorative manifold.
 """
 function identify_z0s_ls(p::Vector{T};
                          θ::Real=sqrt(eps()),  # no T dependence
-                         ρ::Real=(1/100) * sqrt(eps()), # initial residual tolerance
+                         ρ::Real=1e-2*θ, # initial residual tolerance
                          ϕ::Real=100.0,   # residual tolerance growth factor
-                         δ::Real=sqrt(eps())  # passed to solve y sigma
+                         δ::Real=sqrt(eps()),  # passed to solve y sigma
+                         precondition=false
                          ) where {T}
 
 
 
-    u_j, v_j, w_j, residual= AGCD.agcd(p, θ=θ,  ρ=ρ)
+    # pp = Poly(p)
+    # pp, qq, phi, alpha = AGCD.precondition(pp, polyder(pp))
+    # u_j, v_j, w_j, residual= AGCD.agcd(coeffs(pp), coeffs(qq), θ=θ,  ρ=ρ)
 
-    ρ = max(ρ, ϕ * residual)
+    # x = variable(pp)/phi
+    # v = monic(polyval(Poly(v_j),x))
+
+    # for i in eachindex(u_j) u_j[i] /= phi^(i-1) end; AGCD._monic!(u_j)
+    # for i in eachindex(v_j) v_j[i] /= phi^(i-1) end; AGCD._monic!(v_j)
+    # for i in eachindex(w_j) w_j[i] /= phi^(i-1) end; AGCD._monic!(w_j)
+
+    # @show v_j, v, phi, alpha
+
+#    if precondition
+#        u, v, w, residual = AGCD.agcd(Poly(p), θ=θ,  ρ=ρ)
+#        u_j, v_j = coeffs(u), coeffs(v)
+#    else
+#        u_j, v_j, w_j, residual= AGCD.agcd(p, θ=θ,  ρ=ρ)
+#    end
+
+    p,q, phi, alpha = AGCD.precondition(p,AGCD._polyder(p))
+    u_j, v_j, w_j, residual = AGCD.agcd(p, θ=θ,  ρ=ρ)
+
 
     ## bookkeeping
+    ρ = max(ρ, ϕ * residual)
     zs = proots(v_j)
     N = length(zs)
-    ls = ones(Int, length(zs))
+    ls = ones(Int, N)
 
     p0 = u_j
 
-    while Polynomials.degree(p0) > 0
+    while AGCD._degree(p0) > 0
 
-        if Polynomials.degree(p0) == 1
+        if AGCD._degree(p0) == 1
             z = proots(p0)[1]
             tmp, ind = findmin(abs.(zs .- z))
             ls[ind] = ls[ind] + 1
@@ -193,9 +215,9 @@ function identify_z0s_ls(p::Vector{T};
         ## resiudal tolerance grows with m, here it depends on
         ## initial value and previous residual times a growth tolerance, ϕ
         ρ = max(ρ, ϕ * abs(residual))
-
+#        @show v_j, proots(v_j)
         ## update multiplicities
-        for z in proots(v_j)#roots(Poly(v_j))
+        for z in proots(v_j)
             tmp, ind = findmin(abs.(zs .- z))
             ls[ind] = ls[ind] + 1
         end
@@ -204,7 +226,8 @@ function identify_z0s_ls(p::Vector{T};
         p0 = u_j
     end
 
-    zs, ls
+    # remove preconditioning from roots
+    phi * zs, ls
 
 end
 
@@ -282,7 +305,8 @@ function multroot(ps::Vector{T};
                   θ::Real=sqrt(eps()),  # no T
                   ρ::Real=(1/100) * sqrt(eps()), # initial residual tolerance
                   ϕ::Real=100.0,   # residual tolerance growth factor
-                  δ::Real=sqrt(eps())  # passed to solve y sigma
+                  δ::Real=sqrt(eps()),  # passed to solve y sigma
+                  precondition=false
                   ) where {T}
 
     p = float.(ps[1:findlast(!iszero,ps)])
@@ -294,7 +318,7 @@ function multroot(ps::Vector{T};
     end
 
     # two steps
-    zs, ls = identify_z0s_ls(p, θ=θ, ρ=ρ, ϕ=ϕ, δ=δ)
+    zs, ls = identify_z0s_ls(p, θ=θ, ρ=ρ, ϕ=ϕ, δ=δ, precondition=precondition)
 
     if maximum(ls) > 1
         zs = pejroot(p, zs, ls)
@@ -307,7 +331,9 @@ end
 ## Different interfaces
 
 ## can pass in Poly too
-multroot(p::Poly; kwargs...) = multroot(coeffs(p); kwargs...)
+function multroot(p::Poly; kwargs...)
+    multroot(coeffs(p); kwargs...)
+end
 
 
 ## Can pass in function

@@ -499,7 +499,7 @@ function geometric_mean(a::Vector{T})::T where {T}
     prod(abs(u)^(one(T)/n) for u in b)
 end
 
-function ratio(p,q, atol=Base.eps(), rtol=Base.eps())
+function ratio(p::Poly,q::Poly, atol=Base.eps(), rtol=Base.eps())
     as = norm.(filter(!iszero, p.a))
     length(as) == 0 && return Inf
 
@@ -540,6 +540,76 @@ function precondition(p::Poly{T}, q::Poly) where {T}
     p, q, ϕ, α
 
 end
+
+
+##
+
+monic(p) = p/p[end]
+_float(p::Poly{T}) where {T <: AbstractFloat} = p
+_float(p::Poly{T}) where {T} = Poly(float.(p.a), p.var)
+
+## --------------
+## preconditioning code
+## taken from https://who.rocq.inria.fr/Jan.Elias/pdf/je_masterthesis.pdf
+
+## compute q(x) = p(phi*x)
+function Tphi(ps::Vector{T}, phi) where {T}
+    ps .* (phi^(i-1) for i in eachindex(ps))
+end
+## compute q(x) = p(x-alpha)
+function T_alpha(ps::Vector{T}, alpha) where {T}
+end
+
+function geometric_mean(a::Vector{T})::T where {T}
+    b = filter(!iszero, a)
+    n = length(b)
+    prod(abs(u)^(one(T)/n) for u in b)
+end
+
+function ratio(p::Vector,q::Vector, atol=Base.eps(), rtol=Base.eps())
+    as = norm.(filter(!iszero, p))
+    length(as) == 0 && return Inf
+
+    bs = norm.(filter(!iszero, q))
+    length(bs) == 0 && return Inf
+
+    max(maximum(as), maximum(bs)) / min(minimum(as), minimum(bs))
+end
+
+## find alpha, gamma that minimize ratio of max coefficients to min coefficients, for getting zeros
+## 1.12 writes this as a linear programming problem, we just ...
+function precondition(p::Vector{T}, q::Vector) where {T}
+
+    m = ratio(p,q)
+
+    alphas = [(2*one(T))^i for i in -5:5]
+    phis = [(2*one(T))^i for i in -5:5]
+
+    out = ones(eltype(p),2)
+
+    for α in alphas
+        for ϕ in phis
+            r = ratio(Tphi(p, ϕ), α * Tphi(q, ϕ))
+            if r < m
+                out = [α, ϕ]
+            end
+        end
+    end
+
+    α, ϕ = out
+
+
+
+    p = Tphi(p, ϕ)
+    q = α * Tphi(q, ϕ)
+
+    p = p * (1/geometric_mean(p))
+    q = q * (1/geometric_mean(q))
+
+    p, q, ϕ, α
+
+end
+
 
 ## -----------------
 
