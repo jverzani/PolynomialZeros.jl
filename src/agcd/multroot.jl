@@ -161,37 +161,25 @@ function identify_z0s_ls(p::Vector{T};
                          ρ::Real=1e-2*θ, # initial residual tolerance
                          ϕ::Real=100.0,   # residual tolerance growth factor
                          δ::Real=sqrt(eps()),  # passed to solve y sigma
-                         precondition=false
+                         precondition = false
                          ) where {T}
 
 
 
-    # pp = Poly(p)
-    # pp, qq, phi, alpha = AGCD.precondition(pp, polyder(pp))
-    # u_j, v_j, w_j, residual= AGCD.agcd(coeffs(pp), coeffs(qq), θ=θ,  ρ=ρ)
+    q = AGCD._polyder(p)
+    if precondition
+        p,q, phi, alpha = AGCD.precondition(p,AGCD._polyder(p))
+        @show phi, alpha
+    else
+        phi = one(T)
+    end
 
-    # x = variable(pp)/phi
-    # v = monic(polyval(Poly(v_j),x))
-
-    # for i in eachindex(u_j) u_j[i] /= phi^(i-1) end; AGCD._monic!(u_j)
-    # for i in eachindex(v_j) v_j[i] /= phi^(i-1) end; AGCD._monic!(v_j)
-    # for i in eachindex(w_j) w_j[i] /= phi^(i-1) end; AGCD._monic!(w_j)
-
-    # @show v_j, v, phi, alpha
-
-#    if precondition
-#        u, v, w, residual = AGCD.agcd(Poly(p), θ=θ,  ρ=ρ)
-#        u_j, v_j = coeffs(u), coeffs(v)
-#    else
-#        u_j, v_j, w_j, residual= AGCD.agcd(p, θ=θ,  ρ=ρ)
-#    end
-
-    p,q, phi, alpha = AGCD.precondition(p,AGCD._polyder(p))
-    u_j, v_j, w_j, residual = AGCD.agcd(p, θ=θ,  ρ=ρ)
+    u_j, v_j, w_j, residual = AGCD.agcd(p, q, θ=θ,  ρ=ρ)
 
 
     ## bookkeeping
-    ρ = max(ρ, ϕ * residual)
+    ρ = max(ρ, ϕ * norm(residual))
+    rs = PolynomialRoots.roots(v_j)
     zs = proots(v_j)
     N = length(zs)
     ls = ones(Int, N)
@@ -290,7 +278,7 @@ roots(p)
 
 ## Large order polynomials prove difficult. We can't match the claims in Zeng's paper
 ## as we don't get the pejorative manifold structure right.
-p = poly(1.0:7.0));
+p = poly(1.0:7.0);
 multroot(p^2) ## should be 1,2,3,4,...,7 all with multplicity 2, but
 ## ([7.00028, 6.99972, 6.00088, 5.99912, 5.00102, 4.99898, 4.00055, 3.99945, 3.00014, 2.99986, 2.00002, 1.99998, 1.0, 0.999999], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
 
@@ -302,8 +290,8 @@ multroot(p)
 ```
 """
 function multroot(ps::Vector{T};
-                  θ::Real=sqrt(eps()),  # no T
-                  ρ::Real=(1/100) * sqrt(eps()), # initial residual tolerance
+                  θ::Real=1e-11,   # 1e-8 in paper
+                  ρ::Real=1e-1 *  θ, # 1e-10 in paper
                   ϕ::Real=100.0,   # residual tolerance growth factor
                   δ::Real=sqrt(eps()),  # passed to solve y sigma
                   precondition=false
@@ -331,17 +319,9 @@ end
 ## Different interfaces
 
 ## can pass in Poly too
-function multroot(p::Poly; kwargs...)
-    multroot(coeffs(p); kwargs...)
-end
-
-
+multroot(p::Poly; kwargs...) = multroot(coeffs(p); kwargs...)
 ## Can pass in function
-function multroot(f::Function; kwargs...)
-    p = as_poly(Float64, f)
-    multroot(p; kwargs...)
-
-end
+multroot(f::Function; kwargs...) = multroot(as_poly(Float64, f); kwargs...)
 
 
 end

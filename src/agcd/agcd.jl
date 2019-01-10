@@ -166,33 +166,35 @@ function reduce_residual!(u,v,w, p::Vector{T}, q, wts, ρ) where {T}
 
     inc = zeros(T, m + n + l + 3) #weighted_least_square(A, b, wts)
 
-    ρm_1, ρm = Inf, Inf
-    MAXSTEPS = 5
+    ρm, ρm_1 = Inf, residual_error(p,q,u,v,w, wts)
+    MAXSTEPS = 10
     ctr = 0
     flag = :not_converged
 
+    rho_0 = ρm_1
 
 
     while ctr <= MAXSTEPS
+
         ρm =  agcd_update!(p, q, u,v,w, m, n, A, b, inc, up, vp, wp, wts, ρm_1)
-
-        if ρm > 1.5 * ρm_1
-            return (ρm, flag)
+        if ρm < ρm_1
+            ctr += 1
+            ρm_1 = ρm
+        else
+            break
         end
-
-        # threshold here is really important, but not clear what it should be
-        # we empirically get better results---it seems---with sqrt(norm(p,2))
-        # though recomendation if norm(u,2); Might also make sense to include
-        # q in the computation
-        if ρm <= ρ * norm(u,2)
-            flag = :converged
-            return (ρm, flag)
-        end
-        ctr += 1
-        ρm_1 = ρm
     end
 
-    ρm, flag
+    # threshold here is really important, but not clear what it should be.
+    # We empirically get better results---it seems---with sqrt(norm(p,2))
+    # though recomendation if norm(u,2); Might also make sense to include
+    # q in the computation
+    if ρm <= ρ * norm(u,2)
+        flag = :converged
+    end
+    if  ρm < rho_0
+    end
+    return (ρm, flag)
 end
 
 
@@ -216,7 +218,7 @@ Fmp(p,q,u,v,w) =  [u[end]; _polymul(u,v); _polymul(u,w)] .- [1; p; q]
 function Fmp!(b, p,q,u,v,w)
     b[1] = u[end] - 1
     for (i,v) in enumerate(_polymul(u,v) .- p)
-        b[i] = v
+        b[1 + i] = v
     end
     offset = 1 + length(p)
     for (i,v1) in enumerate(_polymul(u,w) .- q)
@@ -233,6 +235,7 @@ function agcd_update!(p, q, u,v,w,m,n, A, b, inc, up, vp, wp, wts, err0)
 
     JF!(A, u,v,w)
     Fmp!(b, p,q,u,v,w)
+
     weighted_least_square!(inc, A, b, wts)
 
     Δu = inc[1:(1+m)]
@@ -246,22 +249,20 @@ function agcd_update!(p, q, u,v,w,m,n, A, b, inc, up, vp, wp, wts, err0)
     wp .-=  Δw; _monic!(wp)
 
     err = residual_error(p,q,up,vp,wp, wts)
-
-    # update if we improve(ish)
-    if err  < 1.1*err0
+    # update if we improve
+    if err  < err0
         u .= up; v .= vp; w .= wp
+    else
+        err = err0
     end
 
 
     # return error estimate
 
-
     err
 end
 
-
-
-
+# used below
 function _mult(Gs, A)
     for G in Gs
         A = G * A
@@ -312,7 +313,8 @@ end
 # converge on smallest eigenvalue of (A'*A) using power rule
 # A=QR; (A'*A)^-1) = (R'*Q'*Q*R)^(-1) = (R'*R)^(-1)
 # instead of computing x_{i+1} = (R'*R)^{-1} xi; we solve R'y=xi; Rz=y;x=z/|z|
-function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=sqrt(eps())) where {T}
+function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=1e-8) where {T}
+    k = size(R)[1]/2
 
     if iszero(det(R))
         return (:iszero, zero(T), T[])
@@ -334,7 +336,7 @@ function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=sqrt(eps())
         sigma = norm(R * x, 2)
         σ1 = abs(sigma)
 
-        if σ1 < 1/10 * σ
+        if σ1 < 0.9 * σ
             σ = σ1
             continue
         end
@@ -343,21 +345,53 @@ function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=sqrt(eps())
             flag = :ispossible
             break
         end
-        if  abs(σ - σ1)  < 1.1 * σ1
-            flag = :ispossible
-            break
-        end
+#        if  abs(σ - σ1)  < 1.1 * σ1
+#            flag = :ispossible
+#            break
+#        end
 
         σ = σ1
     end
 
+
     return (flag, σ1, x)
 end
 
+## return k, sigma for possible k values
+function sylvester_matrix_singular_values(p::Poly, q::Poly=polyder(p);kwargs...)
+    sylvester_matrix_singular_values(coeffs(p), coeffs(q); kwargs...)
+end
+
+function sylvester_matrix_singular_values(ps::Vector{T},
+                                          qs::Vector{S}=_polyder(ps),
+                                          θ=sqrt(eps())) where {T,S}
+    _monic!(ps); _monic!(qs)
+    n, m = length(ps), length(qs)
+    wts = _weights(ps,qs)
+
+    R = promote_type(T,S)
+    A0::Matrix{R} = R[ps vcat(zeros(T, n-m),qs)]
+    Gs = LinearAlgebra.Givens{T}[]
+    k = 1
+    sigmas = R[]
+    R = qr_sylvester!(Gs, A0, k)
+
+    local x::Vector{T}
+
+    while k <= m-1
+        V = UpperTriangular(R)
+        flag, sigma, x = smallest_eigval(V)
+        push!(sigmas, sigma)
+        k += 1
+        R =  qr_sylvester!(Gs, A0, k, R)
+    end
+    return [1:(k-1) sigmas]
+end
+
+
 
 """
-
-    `agcd(p, q, θ=sqrt(eps()), ρ=1e-2*θ)`
+    agcd(p, q, θ=sqrt(eps()), ρ=1e-2*θ)
 
 Find an approximate GCD for polynomials `p` and `q` using an algorithm of [Zeng](https://doi.org/10.1090/S0025-5718-04-01692-8).
 
@@ -369,8 +403,9 @@ Returns u,v,w, err where:
 * The total residual error in these approximations is bounded by `err`.
 
 Further,
+
 * `v` and `w` should share no common roots (`u` is a gcd of `u*v` and `u*w`)
-* the roots of `v` should exhaust unique values of roots of `p`.
+* the roots of `v` should exhaust the unique values of roots of `p`.
 
 (If `p` and `q` are specified as vectors, the returned values will be
 vectors. If specified as objects of `Polynomial` type then the
@@ -378,7 +413,8 @@ returned values will be as well.)
 
 The tolerances are:
 
-* θ: singular value threshold. Used to identify if smallest singular value of Sylvester matrix is ≈ 0
+* θ: singular value threshold. Used to identify if smallest singular value of Sylvester matrix is ≈ 0. Following Zeng, this is set at sqrt(eps()) ~ 1e-8, but does not depend on T, so may need adjusting for different floating point values. (Using sqrt(eps(T)) was too strict for BigFloat.)
+
 * ρ: initial residual tolerance. If we can get (u,v,w) error less than this, we stop
 
 The algorithm looks for the first `k` for which the corresponding
@@ -401,29 +437,28 @@ of `u`, `v`, and `w` are returned by `rank_k_agcd`.
 
 """
 function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
-              θ=sqrt(eps()),  # no T dependence
-              ρ=1e-2*θ, maxk=length(qs)) where {T,S}
+              θ=1e-11, #sqrt(eps()),  # no T dependence
+              ρ=1e-1*θ, maxk=length(qs)) where {T,S}
 
     _monic!(ps); _monic!(qs)
     n, m = length(ps), length(qs)
     wts = _weights(ps,qs)
 
-    R = promote_type(T,S)
-    A0::Matrix{T} = R[ps vcat(zeros(T, n-m),qs)]
+    U = promote_type(T,S)
+    A0::Matrix{U} = U[ps vcat(zeros(U, n-m),qs)]
 
     nm = norm(ps, 2)
-    nm = sqrt(nm)  # paper has theta ||f|!_2; but we  we use (||f||_2)^(1/2)
     thresh = nm * θ ## this is sensitive
 
     Gs = LinearAlgebra.Givens{T}[]
     k = 1
     R = qr_sylvester!(Gs, A0, k)
 
-    local x::Vector{T}
+    local x::Vector{U}
 
     while k <=  maxk
         V = UpperTriangular(R)
-        flag, sigma, x = smallest_eigval(V)
+        flag, sigma, x = smallest_eigval(V, thresh)
 
         if flag != :iszero &&  sigma < thresh
 
@@ -435,8 +470,7 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
 
 
             ρm, flag = reduce_residual!(u, v, w, ps, qs, wts, ρ)
-
-            if flag == :converged
+            if flag == :converged || flag == :not_updated
                 return (u, v, w, ρm)
             end
 
@@ -445,21 +479,21 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
         if flag == :iszero
 
             u = qs
-            w = ones(T, 1)
+            w = ones(U, 1)
             v = cauchy_matrix(u, length(ps) - m + 1) \ ps
             _monic!(v)
 
-            return (u,v,w, zero(T))
+            return (u,v,w, zero(U))
 
         end
 
         # else bumpup k
         k += 1
         if k > m
-            u = ones(T,1)
+            u = ones(U,1)
             w = qs
             v = ps
-            return (u, v, w, zero(T))
+            return (u, v, w, zero(U))
         end
         R =  qr_sylvester!(Gs, A0, k, R)
     end
@@ -479,83 +513,32 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
 end
 
 
-
-
-
-
-
-# for polys, we precondition
-
-monic(p) = p/p[end]
-_float(p::Poly{T}) where {T <: AbstractFloat} = p
-_float(p::Poly{T}) where {T} = Poly(float.(p.a), p.var)
-
-## --------------
-## preconditioning code
-## taken from https://who.rocq.inria.fr/Jan.Elias/pdf/je_masterthesis.pdf
-function geometric_mean(a::Vector{T})::T where {T}
-    b = filter(!iszero, a)
-    n = length(b)
-    prod(abs(u)^(one(T)/n) for u in b)
-end
-
-function ratio(p::Poly,q::Poly, atol=Base.eps(), rtol=Base.eps())
-    as = norm.(filter(!iszero, p.a))
-    length(as) == 0 && return Inf
-
-    bs = norm.(filter(!iszero, q.a))
-    length(bs) == 0 && return Inf
-
-    max(maximum(as), maximum(bs)) / min(minimum(as), minimum(bs))
-end
-
-## find alpha, gamma that minimize ratio of max coefficients to min coefficients, for getting zeros
-## 1.12 writes this as a linear programming problem, we just ...
-function precondition(p::Poly{T}, q::Poly) where {T}
-
-    m = ratio(p,q)
-
-    alphas = [(2*one(T))^i for i in -5:5]
-    phis = [(2*one(T))^i for i in -5:5]
-
-    out = ones(eltype(p),2)
-
-    for α in alphas
-        for ϕ in phis
-            r = ratio(polyval(p, ϕ * variable(p)), α * polyval(q, ϕ * variable(q)))
-            if r < m
-                out = [α, ϕ]
-            end
-        end
-    end
-
-    α, ϕ = out
-
-    p = polyval(p, ϕ * variable(p))
-    q = α * polyval(q, ϕ * variable(q))
-
-    p = p * (1/geometric_mean(coeffs(p)))
-    q = q * (1/geometric_mean(coeffs(q)))
-
-    p, q, ϕ, α
-
+function agcd(p::Poly, q::Poly=polyder(p); kwargs...)
+    u,v,w,rho = agcd(coeffs(p), coeffs(q); kwargs...)
+    (Poly(u), Poly(v), Poly(w), rho)
 end
 
 
-##
 
-monic(p) = p/p[end]
-_float(p::Poly{T}) where {T <: AbstractFloat} = p
-_float(p::Poly{T}) where {T} = Poly(float.(p.a), p.var)
+
+
+
+
 
 ## --------------
 ## preconditioning code
 ## taken from https://who.rocq.inria.fr/Jan.Elias/pdf/je_masterthesis.pdf
 
 ## compute q(x) = p(phi*x)
-function Tphi(ps::Vector{T}, phi) where {T}
-    ps .* (phi^(i-1) for i in eachindex(ps))
+function Tphi!(p, ps::Vector{T}, phi) where {T}
+    p .= ps .* (phi^(i-1) for i in eachindex(ps))
 end
+function Tphi(ps::Vector{T}, phi) where {T}
+    p = copy(ps)
+    p .= ps .* (phi^(i-1) for i in eachindex(ps))
+    p
+end
+## c
 ## compute q(x) = p(x-alpha)
 function T_alpha(ps::Vector{T}, alpha) where {T}
 end
@@ -566,32 +549,43 @@ function geometric_mean(a::Vector{T})::T where {T}
     prod(abs(u)^(one(T)/n) for u in b)
 end
 
-function ratio(p::Vector,q::Vector, atol=Base.eps(), rtol=Base.eps())
-    as = norm.(filter(!iszero, p))
-    length(as) == 0 && return Inf
+# compute max(max(ps), max(qs)) / min(min(ps), min(qs))
+function ratio(p::Vector{T}, q::Vector{T}) where {T}
+    m,M = Inf*one(real(T)), zero(real(T))
+    for ps in (p, q)
+        for a in ps
+            aa = abs(a)
+            if 0 < aa < m
+                m = aa
+            end
+            if aa > M
+                M = aa
+            end
+        end
+    end
 
-    bs = norm.(filter(!iszero, q))
-    length(bs) == 0 && return Inf
+    iszero(m) ? Inf*one(T) : M/m
 
-    max(maximum(as), maximum(bs)) / min(minimum(as), minimum(bs))
 end
+
 
 ## find alpha, gamma that minimize ratio of max coefficients to min coefficients, for getting zeros
 ## 1.12 writes this as a linear programming problem, we just ...
 function precondition(p::Vector{T}, q::Vector) where {T}
 
+    S = real(T)
     m = ratio(p,q)
 
-    alphas = [(2*one(T))^i for i in -5:5]
-    phis = [(2*one(T))^i for i in -5:5]
+    alphas = ((2*one(S))^i for i in -5:5)
+    phis = ((2*one(S))^i for i in -5:5)
 
-    out = ones(eltype(p),2)
+    out = (one(S), one(S))
 
     for α in alphas
         for ϕ in phis
             r = ratio(Tphi(p, ϕ), α * Tphi(q, ϕ))
             if r < m
-                out = [α, ϕ]
+                out = (α, ϕ)
             end
         end
     end
@@ -608,24 +602,6 @@ function precondition(p::Vector{T}, q::Vector) where {T}
 
     p, q, ϕ, α
 
-end
-
-
-## -----------------
-
-function agcd(p0::Poly{T}, q0::Poly{S}=polyder(p0); kwargs...) where {T <: Number,S <: Number}
-
-    p, q = _float(p0), _float(q0)
-
-    p, q, phi, alpha = precondition(p, q)
-
-    u0,v0,w0,err = agcd(coeffs(p), coeffs(q); kwargs...)
-    u,v,w = Poly(u0), Poly(v0), Poly(w0)
-
-    x = (1/phi) * variable(p) # reverse preconditioning
-    u, v, w = map(monic, (polyval(u, x), polyval(v, x), polyval(w, x)))
-
-    u,v,w,err
 end
 
 
