@@ -1,6 +1,7 @@
 module AGCD
 using Polynomials
 using LinearAlgebra
+#using SparseArrays # didn't get boost I thought we might with JF
 
 ## This provide AGCD.agcd for finding an *approximate* GCD of two polynomials. The most common use in this package
 ## is to reduce a polynomial `p` to a square free polynomial `q=p/gcd(p, p')`.
@@ -162,11 +163,11 @@ function reduce_residual!(u,v,w, p::Vector{T}, q, wts, ρ) where {T}
     # preallocate
     A = zeros(T, JF_size(u, v, w)...)
     b = zeros(T, 1 + length(p) + length(q))
+    inc = zeros(T, m + n + l + 3) #weighted_least_square(A, b, wts)
     up,vp,wp = copy(u),copy(v),copy(w)
 
-    inc = zeros(T, m + n + l + 3) #weighted_least_square(A, b, wts)
 
-    ρm, ρm_1 = Inf, residual_error(p,q,u,v,w, wts)
+    ρm, ρm_1 = one(T), residual_error(p,q,u,v,w, wts)
     MAXSTEPS = 10
     ctr = 0
     flag = :not_converged
@@ -353,7 +354,7 @@ function smallest_eigval(R::LinearAlgebra.UpperTriangular{T}, thresh=1e-8) where
         σ = σ1
     end
 
-
+    @show k, flag, σ1, round(Int,log10(thresh)),
     return (flag, σ1, x)
 end
 
@@ -380,7 +381,7 @@ function sylvester_matrix_singular_values(ps::Vector{T},
 
     while k <= m-1
         V = UpperTriangular(R)
-        flag, sigma, x = smallest_eigval(V)
+        flag, sigma, x = smallest_eigval(V, θ * norm(ps,2))
         push!(sigmas, sigma)
         k += 1
         R =  qr_sylvester!(Gs, A0, k, R)
@@ -413,9 +414,9 @@ returned values will be as well.)
 
 The tolerances are:
 
-* θ: singular value threshold. Used to identify if smallest singular value of Sylvester matrix is ≈ 0. Following Zeng, this is set at sqrt(eps()) ~ 1e-8, but does not depend on T, so may need adjusting for different floating point values. (Using sqrt(eps(T)) was too strict for BigFloat.)
+* θ: singular value threshold. Used to identify if smallest singular value of Sylvester matrix is ≈ 0. We use `sqrt(eps(T))`, close to that of Zeng's `1e-8`, but more flexible should `BigFloat` values be used.
 
-* ρ: initial residual tolerance. If we can get (u,v,w) error less than this, we stop
+* ρ: initial residual tolerance. If we can get (u,v,w) error less than this, we stop. Zeng uses `1e-10`, we use as a default the smaller `eps(T)^(5/6)`.
 
 The algorithm looks for the first `k` for which the corresponding
 Sylvester matrix is rank deficient. This follows Lemma 2.4 of the paper, which
@@ -437,8 +438,9 @@ of `u`, `v`, and `w` are returned by `rank_k_agcd`.
 
 """
 function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
-              θ=1e-11, #sqrt(eps()),  # no T dependence
-              ρ=1e-1*θ, maxk=length(qs)) where {T,S}
+              θ=sqrt(eps(T)),
+              ρ=cbrt(eps(T)) * θ,
+              maxk=length(qs)) where {T,S}
 
     _monic!(ps); _monic!(qs)
     n, m = length(ps), length(qs)
@@ -448,7 +450,9 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
     A0::Matrix{U} = U[ps vcat(zeros(U, n-m),qs)]
 
     nm = norm(ps, 2)
+
     thresh = nm * θ ## this is sensitive
+
 
     Gs = LinearAlgebra.Givens{T}[]
     k = 1
@@ -460,6 +464,18 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
         V = UpperTriangular(R)
         flag, sigma, x = smallest_eigval(V, thresh)
 
+        if flag == :iszero
+            # exact zero means we need to identify initial guess for u,v,w
+            u = qs
+            w = ones(U, 1)
+            v = cauchy_matrix(u, length(ps) - m + 1) \ ps
+            _monic!(v)
+
+            return (u,v,w, zero(U))
+
+        end
+
+
         if flag != :iszero &&  sigma < thresh
 
             v = x[2:2:end]; _monic!(v)
@@ -468,22 +484,11 @@ function agcd(ps::Vector{T}, qs::Vector{S}=_polyder(ps);
             u = A \ ps
             _monic!(u)
 
-
             ρm, flag = reduce_residual!(u, v, w, ps, qs, wts, ρ)
+
             if flag == :converged || flag == :not_updated
                 return (u, v, w, ρm)
             end
-
-        end
-
-        if flag == :iszero
-
-            u = qs
-            w = ones(U, 1)
-            v = cauchy_matrix(u, length(ps) - m + 1) \ ps
-            _monic!(v)
-
-            return (u,v,w, zero(U))
 
         end
 

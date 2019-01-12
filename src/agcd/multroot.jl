@@ -98,7 +98,7 @@ end
 pejroot(p::Poly, z0, ls; kwargs...) = pejroot(coeffs(p), z0, ls; kwargs...)
 function pejroot(p::Vector{T}, z0::Vector{S}, l::Vector{Int};
                  wts::Union{Vector, Nothing}=nothing, # weight vector
-                 tol = sqrt(eps(T)),                   # no T dependence
+                 tol = sqrt(eps(T)),
                  maxsteps = 100
                  ) where {T, S <: Union{T, Complex{T}}}
 
@@ -157,10 +157,10 @@ identifies the pejorative manifold.
 
 """
 function identify_z0s_ls(p::Vector{T};
-                         θ::Real=sqrt(eps()),  # no T dependence
-                         ρ::Real=1e-2*θ, # initial residual tolerance
-                         ϕ::Real=100.0,   # residual tolerance growth factor
-                         δ::Real=sqrt(eps()),  # passed to solve y sigma
+                         θ::Real=sqrt(eps(T)),
+                         ρ::Real=cbrt(eps(T))*θ, # initial residual tolerance
+                         ϕ::Real=100.0,          # residual tolerance growth factor
+                         δ::Real=sqrt(eps()),    # passed to solve y sigma
                          precondition = false
                          ) where {T}
 
@@ -169,7 +169,6 @@ function identify_z0s_ls(p::Vector{T};
     q = AGCD._polyder(p)
     if precondition
         p,q, phi, alpha = AGCD.precondition(p,AGCD._polyder(p))
-        @show phi, alpha
     else
         phi = one(T)
     end
@@ -203,7 +202,6 @@ function identify_z0s_ls(p::Vector{T};
         ## resiudal tolerance grows with m, here it depends on
         ## initial value and previous residual times a growth tolerance, ϕ
         ρ = max(ρ, ϕ * abs(residual))
-#        @show v_j, proots(v_j)
         ## update multiplicities
         for z in proots(v_j)
             tmp, ind = findmin(abs.(zs .- z))
@@ -290,11 +288,11 @@ multroot(p)
 ```
 """
 function multroot(ps::Vector{T};
-                  θ::Real=1e-11,   # 1e-8 in paper
-                  ρ::Real=1e-1 *  θ, # 1e-10 in paper
-                  ϕ::Real=100.0,   # residual tolerance growth factor
-                  δ::Real=sqrt(eps()),  # passed to solve y sigma
-                  precondition=false
+                  θ::Real=sqrt(eps(T)),      # 1e-8 in paper
+                  ρ::Real=cbrt(eps(T)) *  θ, # 1e-10 in paper
+                  ϕ::Real=100.0,             # residual tolerance growth factor
+                  δ::Real=sqrt(eps()),       # passed to solve y sigma
+                  precondition=true
                   ) where {T}
 
     p = float.(ps[1:findlast(!iszero,ps)])

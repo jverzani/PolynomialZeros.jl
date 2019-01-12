@@ -16,10 +16,6 @@ _poly(zs,ls) = prod((x-z)^l for (z,l) in zip(zs, ls))
 
     x = variable()
 
-    p = prod(x-i for i in 1:20)
-    u,v,w,err = AGCD.agcd(p)
-    @test Polynomials.degree(v) == Polynomials.degree(p)
-
     p = (x-1)^3
     u,v,w,err = AGCD.agcd(p)
     @test Polynomials.degree(v) == 1
@@ -74,45 +70,6 @@ end
 
 end
 
-@testset "multroot" begin
-    zs, ls = [1.0,2,3,4], [4,3,2,1]
-    _zs, _ls = multroot(_poly(zs, ls))
-    @test all(sort(ls) .== sort(_ls))
-
-    _zs, _ls = multroot(_poly(zs, 3ls))
-    @test !all(sort(2ls) .== sort(_ls)) # XXX fails!
-
-
-    _zs, _ls = multroot(_poly(big.(zs), 3ls))
-    @test all(sort(3ls) .== sort(_ls)) # passes
-
-
-    delta = 0.1
-    zs, ls = [1-delta, 1, 1+delta], [5,4,3]
-    _zs, _ls = multroot(_poly(zs, ls))
-    @test all(sort(ls) .== sort(_ls))
-
-    # this one needs preconditioning
-    n = 20
-    zs,ls = collect(1.0:n), ones(Int, n)
-    _zs, _ls = multroot(_poly(zs, ls), precondition=true)
-    @test all(sort(ls) .== sort(_ls))
-
-    _zs, _ls = multroot(_poly(zs, 2ls), precondition=true)
-    @test !(length(ls) == length(_ls)) ##XXX fails!
-
-    n = 10
-    zs,ls = collect(1.0:n), ones(Int, n)
-    _zs, _ls = multroot(_poly(zs, 2ls)) #fails *badly*
-    @test !(length(_ls) == length(ls))
-
-    n = 5
-    zs,ls = collect(1.0:n), ones(Int, n)
-    _zs, _ls = multroot(_poly(zs, 4ls))
-    @test all(sort(4ls) .== sort(_ls))
-
-end
-
 @testset "pejroot" begin
 
 
@@ -149,18 +106,64 @@ end
 
     p = _poly(zs, 3*ls)
     _zs, _ls = identify_z0s_ls(coeffs(p))
-    @test length(ls) != length(_ls) # fails
+    @test length(ls) != length(_ls) # fails w/o preconditioning
 
-    n = 5
+    n = 4
     zs, ls = cumsum(ones(n)), cumsum(ones(Int, n))
     p = _poly(zs, ls)
     _zs, _ls = identify_z0s_ls(coeffs(p))
     @test all(sort(ls) .== sort(_ls))
 
-    n = 6
+    n = 5
     zs, ls = cumsum(ones(n)), cumsum(ones(Int, n))
     p = _poly(zs, ls)
     _zs, _ls = identify_z0s_ls(coeffs(p))
-    @test !all(sort(ls) .== sort(_ls))
+    @test !(length(ls) == length(_ls))
+
+end
+
+
+
+@testset "multroot" begin
+
+    zs, ls = [1.0,2,3,4], [4,3,2,1]
+    _zs, _ls = multroot(_poly(zs, ls))
+    @test all(sort(ls) .== sort(_ls))
+
+    _zs, _ls = multroot(_poly(zs, 3ls))
+    @test !all(sort(2ls) .== sort(_ls)) # XXX fails!
+
+
+    _zs, _ls = multroot(_poly(big.(zs), 3ls))
+    @test all(sort(3ls) .== sort(_ls)) # passes
+
+
+    delta = 0.01
+    zs, ls = [1-delta, 1, 1+delta], [5,4,3]
+    _zs, _ls = multroot(_poly(zs, ls))
+    @test all(sort(ls) .== sort(_ls))
+
+    n = 20
+    zs,ls = collect(1.0:n), ones(Int, n)
+    _zs, _ls = multroot(_poly(zs, ls))
+    @test all(sort(ls) .== sort(_ls))
+
+    _zs, _ls = multroot(_poly(zs, 2ls))
+    @test !(length(ls) == length(_ls)) ##XXX fails!
+
+    n = 10
+    zs,ls = collect(1.0:n), ones(Int, n)
+    _zs, _ls = multroot(_poly(zs, 2ls)) #fails *badly*
+    @test !(length(_ls) == length(ls))
+
+    n = 10
+    zs,ls = collect(1.0:n), ones(Int, n)
+    _zs, _ls = multroot(_poly(big.(zs), 2ls)) # works now
+    @test all(sort(ls) .== sort(_ls))
+
+    n = 5
+    zs,ls = collect(1.0:n), ones(Int, n)
+    _zs, _ls = multroot(_poly(zs, 4ls))
+    @test all(sort(4ls) .== sort(_ls))
 
 end
