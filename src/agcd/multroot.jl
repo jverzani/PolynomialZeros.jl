@@ -98,13 +98,13 @@ end
 pejroot(p::Poly, z0, ls; kwargs...) = pejroot(coeffs(p), z0, ls; kwargs...)
 function pejroot(p::Vector{T}, z0::Vector{S}, l::Vector{Int};
                  wts::Union{Vector, Nothing}=nothing, # weight vector
-                 tol = sqrt(eps(T)),
+                 τ = sqrt(eps(real(T))),
                  maxsteps = 100
                  ) where {T, S <: Union{T, Complex{T}}}
 
 
     a = p2a(p)
-    λ = min(sqrt(eps(T)), norm(p,2) * eps(T)^(2/3))
+    λ = min(sqrt(eps(real(T))), norm(p,2) * eps(real(T))^(2/3))
     if wts == nothing
         wts = map(aj -> min(1, 1/abs(aj)), a)
     end
@@ -134,7 +134,7 @@ function pejroot(p::Vector{T}, z0::Vector{S}, l::Vector{Int};
         end
 
         ## add extra abs(delta) < 100*eps() condition
-        if δ1^2 < Δ * tol# || δ1 < λ
+        if δ1^2 < Δ * τ# || δ1 < λ
             cvg = true
             break
         end
@@ -157,10 +157,9 @@ identifies the pejorative manifold.
 
 """
 function identify_z0s_ls(p::Vector{T};
-                         θ::Real=sqrt(eps(T)),
-                         ρ::Real=cbrt(eps(T))*θ, # initial residual tolerance
+                         θ::Real=sqrt(eps(real(T))),
+                         ρ::Real=cbrt(eps(real(T)))*θ, # initial residual tolerance
                          ϕ::Real=100.0,          # residual tolerance growth factor
-                         δ::Real=sqrt(eps()),    # passed to solve y sigma
                          precondition = false
                          ) where {T}
 
@@ -213,7 +212,7 @@ function identify_z0s_ls(p::Vector{T};
     end
 
     # remove preconditioning from roots
-    phi * zs, ls
+    phi * zs, ls, ρ
 
 end
 
@@ -288,10 +287,10 @@ multroot(p)
 ```
 """
 function multroot(ps::Vector{T};
-                  θ::Real=sqrt(eps(T)),      # 1e-8 in paper
-                  ρ::Real=cbrt(eps(T)) *  θ, # 1e-10 in paper
+                  θ::Real=1e-2 * sqrt(eps(real(T))),      # 1e-8 in paper
+                  ρ::Real=(eps(real(T)))^(5/6), # 1e-10 in paper
                   ϕ::Real=100.0,             # residual tolerance growth factor
-                  δ::Real=sqrt(eps()),       # passed to solve y sigma
+                  τ::Real= θ,       # passed to solve y sigma
                   precondition=true
                   ) where {T}
 
@@ -304,10 +303,10 @@ function multroot(ps::Vector{T};
     end
 
     # two steps
-    zs, ls = identify_z0s_ls(p, θ=θ, ρ=ρ, ϕ=ϕ, δ=δ, precondition=precondition)
+    zs, ls, rho = identify_z0s_ls(p, θ=θ, ρ=ρ, ϕ=ϕ, precondition=precondition)
 
     if maximum(ls) > 1
-        zs = pejroot(p, zs, ls)
+        zs = pejroot(p, zs, ls, τ=τ)
     end
 
     return (zs, ls)

@@ -37,7 +37,7 @@ function Cyclotomic(n, T=Float64)
     n == 20 && return x^8 - x^6 + x^4 - x^2 + 1
     throw(DomainError)
 end
-    
+
 
 
 @testset "Over.C" begin
@@ -49,7 +49,7 @@ end
     rts = poly_roots(p, Over.C)
     @test maximum(norm.(p.(rts) ./ polyder(p).(rts))) <= 1e-14
 
-    
+
     ## we have different methods
     rts = 1.0:6; p = poly(rts)
     fn = x -> x^5 - x - 1
@@ -61,7 +61,7 @@ end
     # test deflation
     fn = x -> x^3 * (x-1) * (x^2 + 1)
     @test sum(iszero.(poly_roots(fn, Over.C))) == 3
-    
+
 end
 
 @testset "Over.R" begin
@@ -84,11 +84,11 @@ end
     ds = sort(poly_roots(fn, Over.R)) .- sort([1,0])
     @test norm(ds) <= 1e-14
 
-    
-end 
+
+end
 
 @testset "Over.Q" begin
-    @test length(poly_roots(Wilkinson(5, Int), Over.Q)) == 5    
+    @test length(poly_roots(Wilkinson(5, Int), Over.Q)) == 5
     @test length(poly_roots(x -> x^5 - x -1, Over.Q)) == 0
 
     # test deflation
@@ -127,7 +127,7 @@ end
     rts_c = poly_roots(p, Over.C)
     rts_r = poly_roots(p, Over.R)
     @test length(rts_c) == 3
-    @test length(rts_r) == 1    
+    @test length(rts_r) == 1
 
     x = variable(Int)
     p = (x-1)*(2x-3)
@@ -159,7 +159,7 @@ end
 
     # over.R
     [@test eltype(poly_roots(fn, Over.RR{T})) == T for T in FTs]
-    @test_throws InexactError poly_roots(fn, Over.RR{Int})
+    @test_throws MethodError poly_roots(fn, Over.RR{Int})
 
     # over.Z
     [poly_roots(fn1, Over.ZZ{T})  for T in [Int16, Int32, Int64, Int128]]
@@ -169,5 +169,5 @@ end
     p = poly([3.0])^5
     @test_throws MethodError poly_roots(p, Over.Z) # p has Float64 coefficients.
     @test poly_roots(convert(Poly{Int}, p), Over.Z) == [-3.0]
-    
+
 end
