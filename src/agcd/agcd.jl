@@ -42,8 +42,6 @@ function _monic(p::Vector)
     _monic!(p1)
     p1
 end
-_float(p::Vector) = float(p)
-
 
 function _polymul(p::Vector{T}, q) where {T}
     R = promote_type(T,eltype(q))

@@ -38,8 +38,8 @@ _poly(zs,ls,x=x) = prod((x-z)^l for (z,l) in zip(zs, ls))
 
     # use big
     n = 6
-    p = prod((x-i)^i for i in 1:n)
-    u,v,w,err = AGCD.agcd(convert(Poly{BigFloat}, p))
+    p = prod((bx-i)^i for i in 1:n)
+    u,v,w,err = AGCD.agcd(p)
     @test Polynomials.degree(v) == n
 
     T = Float64
@@ -55,14 +55,15 @@ end
 
 
     T = Float32
-    x = variable(T)
-    p = (x-1)^2 * (x-2)^2 * (x+3)^3
+    zs, ls = [1,2,-3],[2,2,3]
+    p = _poly(zs, ls, variable(T))
+    ps = coeffs(p)
     u,v,w,err = AGCD.agcd(p, θ=1e-4)
 
     @test degree(v) == 3
 
-
-    p = (bx-1)^2 * (bx-2)^2 * (bx+3)^3
+    # big float
+    p = _poly(zs, ls, bx)
     u,v,w,err = AGCD.agcd(p^15)
 
     @test degree(v) == 3 # fails for Float64
@@ -132,8 +133,7 @@ end
     _zs, _ls = multroot(_poly(zs, 3ls,x))
     @test !all(sort(2ls) .== sort(_ls)) # XXX fails!
 
-    y = variable(BigInt)
-    _zs, _ls = multroot(_poly(big.(zs), 3ls,y))
+    _zs, _ls = multroot(_poly(big.(zs), 3ls,bx))
     @test all(sort(3ls) .== sort(_ls)) # passes
 
 
