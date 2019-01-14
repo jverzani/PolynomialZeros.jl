@@ -4,6 +4,7 @@ const MultRoot = PolynomialZeros.MultRoot
 using Polynomials
 using Test
 
+poly_coeffs = PolynomialZeros.poly_coeffs
 multroot=PolynomialZeros.MultRoot.multroot
 pejroot=PolynomialZeros.MultRoot.pejroot
 agcd = PolynomialZeros.AGCD.agcd
@@ -57,7 +58,7 @@ end
     T = Float32
     zs, ls = [1,2,-3],[2,2,3]
     p = _poly(zs, ls, variable(T))
-    ps = coeffs(p)
+    ps = poly_coeffs(p)
     u,v,w,err = AGCD.agcd(p, θ=1e-4)
 
     @test degree(v) == 3
@@ -101,23 +102,23 @@ end
 
     zs, ls = [1.0,2,3,4], [4,3,2,1]
     p = _poly(zs, ls,x)
-    _zs, _ls = identify_z0s_ls(coeffs(p))
+    _zs, _ls = identify_z0s_ls(poly_coeffs(p))
     @test all(sort(ls) .== sort(_ls))
 
     p = _poly(zs, 3*ls,x)
-    _zs, _ls = identify_z0s_ls(coeffs(p))
+    _zs, _ls = identify_z0s_ls(poly_coeffs(p))
     @test length(ls) != length(_ls) # fails w/o preconditioning
 
     n = 4
     zs, ls = cumsum(ones(n)), cumsum(ones(Int, n))
     p = _poly(zs, ls,x)
-    _zs, _ls = identify_z0s_ls(coeffs(p))
+    _zs, _ls = identify_z0s_ls(poly_coeffs(p))
     @test all(sort(ls) .== sort(_ls))
 
     n = 5
     zs, ls = cumsum(ones(n)), cumsum(ones(Int, n))
     p = _poly(zs, ls,x)
-    _zs, _ls = identify_z0s_ls(coeffs(p))
+    _zs, _ls = identify_z0s_ls(poly_coeffs(p))
     @test !(length(ls) == length(_ls))
 
 end
@@ -176,19 +177,19 @@ end
     # 3.6.1
     zs, ls = [1.0,2,3,4], [4,3,2,1]
     p1 = _poly(zs, ls, x)
-    ps = coeffs(p1)
+    ps = poly_coeffs(p1)
     z0 = zs + 0.1 * [1,-1,1,-1]
     @test maximum(abs.(sort(pejroot(ps, z0, ls)) - [1,2,3,4])) <= 1e-10
 
     ls = [40,30,20,10]
     p2 = _poly(zs, ls, x)
-    ps = coeffs(p2)
+    ps = poly_coeffs(p2)
     z0 = zs + 0.01 * [1,-1,1,-1]
     @test maximum(abs.(sort(pejroot(ps, z0, ls)) - [1,2,3,4])) <= 1e-14
 
     zs, ls = [sqrt(2), sqrt(3)], [20,10]
     p3 = _poly(zs, ls, x)
-    ps = coeffs(p3)
+    ps = poly_coeffs(p3)
     zs_, ls_ = multroot(ps)
     @test maximum(abs.(sort(zs_) - sort(zs))) <= 1e-14
 
@@ -196,13 +197,13 @@ end
     delta = 0.1
     zs, ls = [1,1,1]-delta*[-1,0,1], [9,5,2]
     p4 = _poly(zs, ls, x)
-    ps = coeffs(p4)
+    ps = poly_coeffs(p4)
     zs_,ls_ = multroot(ps)
     @test  maximum(abs.(sort(zs_) - sort(zs))) <= 1e-13
 
     zs, ls = [1,1,1]+delta*[-1,0,1], 2 * [9,5,2] # from paper
     p4 = _poly(zs, ls, x)
-    ps = coeffs(p4)
+    ps = poly_coeffs(p4)
     zs_,ls_ = multroot(ps)
     # @test  maximum(abs.(sort(zs_) - zs)) <= 1e-14 # fails, not even correct size for zs
 
@@ -214,7 +215,7 @@ end
     # will work with BigFloat
     zs, ls = [1,1,1]+delta*[-1,0,1], 2 * [9,5,2] # from paper
     p5 = _poly(zs, ls, bx)
-    ps = coeffs(p5)
+    ps = poly_coeffs(p5)
     zs_,ls_ = multroot(ps)
     @test  maximum(abs.(sort(zs_) - zs)) <= 1e-50
 
@@ -222,7 +223,7 @@ end
 
     zs, ls = [0.3 + 0.6im, 0.1 + 0.7im, 0.7+0.5im, 0.3 + 0.4im], [100, 200, 300, 400]
     p7 = _poly(zs, ls, variable(Complex{Float64}))
-    ps = coeffs(p7)
+    ps = poly_coeffs(p7)
     ps = ps + rand(-1:1, length(ps)) * 1e-6
     z0s = [.289+.601im, .100 + .702im, .702 + .498im, .301 + .399im]
     zs_ = pejroot(ps, z0s, ls)
@@ -235,13 +236,13 @@ end
     k=3
     zs, ls = [1,2,3,4], k*[4,3,2,1]
     p8 = _poly(zs, ls, x)
-    ps = coeffs(p8)
+    ps = poly_coeffs(p8)
     zs_, ls_ = multroot(ps)
     @test all(sort(ls_) .== sort(ls))
 
     zs, ls = [10/11, 20/11, 30/11], [5,5,5]
     p9 = _poly(zs, ls, x)
-    ps = coeffs(p9)
+    ps = poly_coeffs(p9)
     zs_, ls_ = multroot(ps)
     @test all(sort(ls_) .== sort(ls))
 

@@ -364,7 +364,7 @@ end
 
 ## return k, sigma for possible k values
 function sylvester_matrix_singular_values(p::Poly, q::Poly=polyder(p);kwargs...)
-    sylvester_matrix_singular_values(coeffs(p), coeffs(q); kwargs...)
+    sylvester_matrix_singular_values(Polynomials.coeffs(p), Polynomials.coeffs(q); kwargs...)
 end
 
 function sylvester_matrix_singular_values(ps::Vector{T},
@@ -538,7 +538,7 @@ end
 
 
 function agcd(p::Poly, q::Poly=polyder(p); kwargs...)
-    u,v,w,rho = agcd(coeffs(p), coeffs(q); kwargs...)
+    u,v,w,rho = agcd(Polynomials.coeffs(p), Polynomials.coeffs(q); kwargs...)
     (Poly(u), Poly(v), Poly(w), rho)
 end
 

@@ -95,7 +95,7 @@ end
 ## G_l(z) = a, where a is related to monic version of polynomial p
 ## l is known multiplicity structure of polynomial p = (x-z1)^l1 * (x-z2)^l2 * ... * (x-zn)^ln
 ## Algorithm I, p17
-pejroot(p::Poly, z0, ls; kwargs...) = pejroot(coeffs(p), z0, ls; kwargs...)
+pejroot(p::Poly, z0, ls; kwargs...) = pejroot(Polynomials.coeffs(p), z0, ls; kwargs...)
 function pejroot(p::Vector{T}, z0::Vector{S}, l::Vector{Int};
                  wts::Union{Vector, Nothing}=nothing, # weight vector
                  τ = sqrt(eps(real(T))),
@@ -316,7 +316,7 @@ end
 ## Different interfaces
 
 ## can pass in Poly too
-multroot(p::Poly; kwargs...) = multroot(coeffs(p); kwargs...)
+multroot(p::Poly; kwargs...) = multroot(Polynomials.coeffs(p); kwargs...)
 ## Can pass in function
 multroot(f::Function; kwargs...) = multroot(as_poly(Float64, f); kwargs...)
 

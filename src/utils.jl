@@ -42,7 +42,7 @@ Find coefficients of polynomial expressed as Poly, Callable object, or values [a
 
 """
 poly_coeffs(ps::Vector{T}) where {T} = ps
-poly_coeffs(p::Poly{T}) where {T} = coeffs(p)
+poly_coeffs(p::Poly{T}) where {T} = Polynomials.coeffs(p)
 poly_coeffs(f) = poly_coeffs(as_poly(f))
 poly_coeffs(T, f) = convert(Vector{T}, poly_coeffs(f))
 

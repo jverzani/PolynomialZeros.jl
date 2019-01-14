@@ -16,7 +16,7 @@ using Printf
 
 
 export poly_roots
-export Over 
+export Over
 
 # export agcd, multroot # qualify these
 
@@ -45,7 +45,7 @@ using .MultRoot
 
 `poly_roots(f, domain)`: Find zeros of the polynomial `f` within the specified domain.
 
-* `f` can be an instance of `Poly` type (from `Polynomials.jl`) or a callable object which can be so converted. Will throw a `DomainError` if the object `f` can not be converted to `Poly{T}`.        
+* `f` can be an instance of `Poly` type (from `Polynomials.jl`) or a callable object which can be so converted. Will throw a `DomainError` if the object `f` can not be converted to `Poly{T}`.
 
 * `domain` is one of
 
@@ -97,7 +97,7 @@ poly_roots(p, Over.Q)  # 1
 poly_roots(p, Over.Z)  # 1
 poly_roots(p, Over.Zp{7})  # 3
 ```
-    
+
 """
 function poly_roots(f; method=:PolynomialRoots)
     poly_roots(f, Over.C; method=method) # default
@@ -113,7 +113,7 @@ function poly_roots(f, U::Type{Over.CC{T}}; method=:PolynomialRoots) where {T<:A
 
     ps = poly_coeffs(T, f)
     fn = special_case(ps, U)
-    
+
     if fn == identity
         if method == :PolynomialRoots && T <: Union{Float64, BigFloat}
             PolynomialRoots.roots(ps, polish=true)
@@ -140,13 +140,13 @@ function poly_roots(f, U::Type{Over.RR{T}}; square_free::Bool=false) where {T <:
 
     ps = convert(Vector{T}, poly_coeffs(f))
     fn = special_case(ps, U)
-    
+
     if fn == identity
         RealRoots.real_roots(as_poly(T, f), square_free=square_free)
     else
         fn(ps, U)
     end
-    
+
 end
 # should I do an alias? Best to add if requestd, keeping name space light for now
 ## realroots(f; kwargs...) = poly_roots(f, Over.R; kwargs...) #real_roots?
@@ -155,7 +155,7 @@ _rational_T(::Type{Rational{T}}) where {T}= T
 _rational_T(::Rational{T}) where {T} =T
 function poly_roots(f, ::Type{Over.Q})
     T = promote_type(Int, e_type(f))
-    
+
     if T <: Integer
         return poly_roots(f, Over.QQ{T})
     elseif T <: Rational
@@ -173,7 +173,7 @@ function poly_roots(f, U::Type{Over.QQ{T}}) where {T <: Integer}
     p = as_poly(Rational{T}, f)
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
-        ps = coeffs(p)
+        ps = poly_coeffs(p)
         l = lcm(denominator.(ps))
         qs = numerator.(l * ps)
         d = PolynomialFactors.poly_factor(qs)
@@ -187,7 +187,7 @@ function poly_roots(f, U::Type{Over.QQ{T}}) where {T <: Integer}
     else
         fn(p.a, U)
     end
-    
+
 end
 
 ## ----
@@ -203,7 +203,7 @@ function poly_roots(f, U::Type{Over.ZZ{T}}) where {T <: Integer}
 
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
-        d = PolynomialFactors.poly_factor(coeffs(p))
+        d = PolynomialFactors.poly_factor(poly_coeffs(p))
         d = filter(kv -> AA.degree(kv[1]) == 1, d)
         rts = T[]
         for (k,v) in d
@@ -222,10 +222,10 @@ end
 
 function poly_roots(f, U::Type{Over.Zp{q}}) where {q}
     # error if q is not prime?
-    
+
     p = as_poly(e_type(f), f)
     paa = PolynomialFactors.as_poly(p.a)
-    
+
     fn = special_case(poly_coeffs(p), U)
     if fn == identity
         fs = PolynomialFactors.factormod(paa,q)
@@ -241,7 +241,7 @@ function poly_roots(f, U::Type{Over.Zp{q}}) where {q}
     else
         fn(p.a, U)
     end
-    
+
 end
 
 
