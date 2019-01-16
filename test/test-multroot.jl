@@ -185,7 +185,7 @@ end
     p2 = _poly(zs, ls, x)
     ps = poly_coeffs(p2)
     z0 = zs + 0.01 * [1,-1,1,-1]
-    @test maximum(abs.(sort(pejroot(ps, z0, ls)) - [1,2,3,4])) <= 1e-14
+    @test maximum(abs.(sort(pejroot(ps, z0, ls)) - [1,2,3,4])) <= 1e-13
 
     zs, ls = [sqrt(2), sqrt(3)], [20,10]
     p3 = _poly(zs, ls, x)
