@@ -1,5 +1,6 @@
 module MultRoot
 using Polynomials
+import PolynomialRoots
 using LinearAlgebra
 include("../utils.jl")
 ## The main function here is `MultRoot.multroot`
@@ -7,7 +8,7 @@ include("../utils.jl")
 ## Polynomial root finder for polynomials with multiple roots
 ##
 ## Based on "Computing multiple roots of inexact polynomials"
-## http://www.neiu.edu/~zzeng/mathcomp/zroot.pdf
+## https://doi.org/10.1090/S0025-5718-04-01692-8
 ## Author: Zhonggang Zeng
 ## Journal: Math. Comp. 74 (2005), 869-903
 ##
@@ -23,10 +24,19 @@ include("../utils.jl")
 ## improve the root estimates from algorithm II (roots(v)). The pejorative manifold is defined by
 ## the multiplicities l and is operationalized in evalG and evalJ from Zeng's paper.
 
-using Polynomials
+
 using ..AGCD
 monic(p) = p/p[end]
 rcoeffs(p) = reverse(p.a)
+function proots(zs)
+    rs = PolynomialRoots.roots(zs)
+    if all(iszero.(imag(rs)))
+        return real.(rs)
+    else
+        return rs
+    end
+end
+
 
 ## map monic(p) to a point in C^n
 ## p = 1x^n + a1x^n-1 + ... + an_1 x + an -> (a1,a2,...,an)
@@ -34,6 +44,11 @@ function p2a(p::Poly)
     p = monic(p)
     rcoeffs(p)[2:end]
 end
+function p2a(p::Vector{T}) where {T}
+    a,pn = reverse(p[1:end-1]),p[end]
+    a .* (1/p[end])
+end
+
 
 ## get value of gl(z). From p16
 function evalG(zs::Vector, ls::Vector)
@@ -45,22 +60,34 @@ function evalG(zs::Vector, ls::Vector)
 end
 
 ## get jacobian J_l(z), p16
-function evalJ(zs::Vector, ls::Vector)
+
+## get jacobian J_l(z), p16
+function evalJ!(J, zs::Vector{T}, ls::Vector) where {T}
     length(zs) == length(ls) || throw("Length mismatch")
-    m = length(zs)
 
-    u = prod([poly([z])^(l-1) for (z,l) in zip(zs, ls)]) ## Pi (1-z)^(l-1)
+    n, m = sum(ls), length(zs)
+    u = evalG(zs, ls .- 1)
+    pushfirst!(u, one(T))
 
-    J = zeros(eltype(zs), sum(ls), m)
+#    x = Polynomials.variable(T)
+#    u = prod((x-z)^(l-1) for (z,l) in zip(zs, ls))  # \prod (x-z_i)^l_i
+
+
     for j in 1:m
         s = -ls[j] * u
-        for i in 1:m
-            if i != j
-                s = s * poly([zs[i]])
-            end
+
+        for (l, zl) in zip(1:m, zs)
+            l == j && continue
+            s = AGCD._polymul(s, (one(T), -zl))
         end
-        J[:,j] = rcoeffs(s)
+    J[:,j] = s#rceffs(s)
     end
+    J
+end
+function evalJ(zs::Vector{T}, ls) where {T}
+    n, m = sum(ls), length(zs)
+    J = zeros(T, n, m)
+    evalJ!(J, zs, ls)
     J
 end
 
@@ -68,58 +95,125 @@ end
 ## G_l(z) = a, where a is related to monic version of polynomial p
 ## l is known multiplicity structure of polynomial p = (x-z1)^l1 * (x-z2)^l2 * ... * (x-zn)^ln
 ## Algorithm I, p17
-function pejroot(p::Poly, z0::Vector, l::Vector{Int};
+pejroot(p::Poly, z0, ls; kwargs...) = pejroot(Polynomials.coeffs(p), z0, ls; kwargs...)
+function pejroot(p::Vector{T}, z0::Vector{S}, l::Vector{Int};
                  wts::Union{Vector, Nothing}=nothing, # weight vector
-                 tol = 1e-8,
+                 τ = sqrt(eps(real(T))),
                  maxsteps = 100
-                      )
+                 ) where {T, S <: Union{T, Complex{T}}}
 
-    a = p2a(p) #rcoeffs(monic(p))[2:end] # an_1, an_2, ..., a2, a1, a0
 
+    a = p2a(p)
+    λ = min(sqrt(eps(real(T))), norm(p,2) * eps(real(T))^(2/3))
     if wts == nothing
-        wts = map(u -> min(1, 1/abs.(u)), a)
+        wts = map(aj -> min(1, 1/abs(aj)), a)
     end
 
     ## Solve WJ Δz = W(Gl(z) - a) in algorithm I
-#    G(z) = (evalG(z, l) - a)
-#    update(z, l) = z -  AGCD.weighted_least_square(evalJ(z,l), G(z), wts)
-
-    G = z -> evalG(z,l) - a
-
     zk = copy(z0);
-    zk1 = zk - AGCD.weighted_least_square(evalJ(zk,l), G(zk), wts)
-    deltaold = norm(zk1 - zk,2)
-    zk = zk1
+    J = evalJ(zk, l)
+
+    deltak = AGCD.weighted_least_square(J, evalG(zk,l).-a, wts)
+    zk .-=  deltak
+    δ0 = norm(deltak, 2)
 
     cvg = false
+
     for ctr in 1:maxsteps
 
-        zk1 = zk - AGCD.weighted_least_square(evalJ(zk,l), G(zk), wts)
-        delta = norm(zk1 - zk, 2)
+        AGCD.weighted_least_square!(deltak, evalJ!(J, zk,l), evalG(zk,l).-a, wts)
+        zk .-= deltak
+        δ1 = norm(deltak, 2)
 
-        if delta > deltaold
-            @info "Growing delta. Best guess is being returned."
+
+        Δ = δ0 - δ1
+
+        if Δ < 0 && ctr > 2
+            @debug "Growing delta. Best guess is being returned."
             break
         end
 
         ## add extra abs(delta) < 100*eps() condition
-        if delta^2 / (deltaold - delta) < tol || abs(delta) < 100*eps()
+        if δ1^2 < Δ * τ# || δ1 < λ
             cvg = true
             break
         end
 
-        deltaold = delta
-        zk=zk1
+        δ0 = δ1
     end
 
-    if !cvg @info ("""
-Returning the initial estimates, as the
-algorithm failed to improve estimates for the roots on the given
-pejorative manifold.
-""")
+    if !cvg @info ("""The multiplicity count may be in error--the initial guess for the roots failed to improve when refined along the pejorative manifold.""")
         return(z0)
     end
-    return(zk1)
+    return(zk)
+end
+
+
+"""
+        identify_z0s_ls(p; ...)
+
+Step one of the algorithm identifies initial guesses for the roots and
+identifies the pejorative manifold.
+
+"""
+function identify_z0s_ls(p::Vector{T};
+                         θ::Real=sqrt(eps(real(T))),
+                         ρ::Real=cbrt(eps(real(T)))*θ, # initial residual tolerance
+                         ϕ::Real=100.0,          # residual tolerance growth factor
+                         precondition = false
+                         ) where {T}
+
+
+
+    q = AGCD._polyder(p)
+    if precondition
+        p,q, phi, alpha = AGCD.precondition(p,AGCD._polyder(p))
+    else
+        phi = one(T)
+    end
+
+    u_j, v_j, w_j, residual = AGCD.agcd(p, q, θ=θ,  ρ=ρ)
+
+
+    ## bookkeeping
+    ρ = max(ρ, ϕ * norm(residual))
+    rs = PolynomialRoots.roots(v_j)
+    zs = proots(v_j)
+    N = length(zs)
+    ls = ones(Int, N)
+
+    p0 = u_j
+
+    while AGCD._degree(p0) > 0
+
+        if AGCD._degree(p0) == 1
+            z = proots(p0)[1]
+            tmp, ind = findmin(abs.(zs .- z))
+            ls[ind] = ls[ind] + 1
+            break
+        end
+
+
+        u_j, v_j, w_j, residual= AGCD.agcd(p0, θ=θ, ρ=ρ, maxk=N+1)
+
+        ## need to worry about residual between
+        ## u0 * v0 - monic(p0) and u0 * w0 - monic(Polynomials.polyder(p0))
+        ## resiudal tolerance grows with m, here it depends on
+        ## initial value and previous residual times a growth tolerance, ϕ
+        ρ = max(ρ, ϕ * abs(residual))
+        ## update multiplicities
+        for z in proots(v_j)
+            tmp, ind = findmin(abs.(zs .- z))
+            ls[ind] = ls[ind] + 1
+        end
+
+        ## rename
+        p0 = u_j
+    end
+
+    # remove preconditioning from roots
+    phi * zs, ls, ρ
+
 end
 
 """
@@ -134,7 +228,7 @@ polynomial has multiplicities.
 Based on "Computing multiple roots of inexact polynomials"
 Zhonggang Zeng
 Journal: Math. Comp. 74 (2005), 869-903
-http://www.neiu.edu/~zzeng/mathcomp/zroot.pdf
+https://doi.org/10.1090/S0025-5718-04-01692-8
 
 Zeng has a MATLAB package `multroot`, from which this name is derived.
 
@@ -181,7 +275,7 @@ roots(p)
 
 ## Large order polynomials prove difficult. We can't match the claims in Zeng's paper
 ## as we don't get the pejorative manifold structure right.
-p = poly(1.0:7.0));
+p = poly(1.0:7.0);
 multroot(p^2) ## should be 1,2,3,4,...,7 all with multplicity 2, but
 ## ([7.00028, 6.99972, 6.00088, 5.99912, 5.00102, 4.99898, 4.00055, 3.99945, 3.00014, 2.99986, 2.00002, 1.99998, 1.0, 0.999999], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
 
@@ -192,77 +286,39 @@ multroot(p)
 ## ([1.0], [3])
 ```
 """
-function multroot(p::Poly;
-                  θ::Real=1e-8,  #
-                  ρ::Real=1e-10, # initial residual tolerance
-                  ϕ::Real=1e2,   # residual tolerance growth factor
-                  δ::Real=1e-8   # passed to solve y sigma
+function multroot(ps::Vector{T};
+                  θ::Real=1e-2 * sqrt(eps(real(T))),      # 1e-8 in paper
+                  ρ::Real=(eps(real(T)))^(5/6), # 1e-10 in paper
+                  ϕ::Real=100.0,             # residual tolerance growth factor
+                  τ::Real= θ,       # passed to solve y sigma
+                  precondition=true
+                  ) where {T}
 
-                  )
+    p = float.(ps[1:findlast(!iszero,ps)])
 
-    Polynomials.degree(p) == 0 && error("Degree of `p` must be atleast 1")
-
-    if Polynomials.degree(p) == 1
-        return (roots(p), [1])
+    # simple cases
+    AGCD._degree(p) == 0 && error("Degree of `p` must be atleast 1")
+    if AGCD._degree(p) == 1
+        return (-p[1:1]/p[end], [1])
     end
 
-    p = Poly(float(coeffs(p)))  # floats, not Int
+    # two steps
+    zs, ls, rho = identify_z0s_ls(p, θ=θ, ρ=ρ, ϕ=ϕ, precondition=precondition)
 
-    u_j, v_j, w_j, residual= AGCD.agcd(p, polyder(p), θ=θ,  ρ=ρ)
-    ρ = max(ρ, ϕ * residual)
-
-    ## bookkeeping
-    zs = roots(v_j)
-    ls = ones(Int, length(zs))
-
-    p0 = u_j
-
-    while Polynomials.degree(p0) > 0
-        if Polynomials.degree(p0) == 1
-            z = roots(p0)[1]
-            tmp, ind = findmin(abs.(zs .- z))
-            ls[ind] = ls[ind] + 1
-            break
-        end
-
-        u_j, v_j, w_j, residual= AGCD.agcd(p0, polyder(p0), θ=θ, ρ=ρ)
-
-        ## need to worry about residual between
-        ## u0 * v0 - monic(p0) and u0 * w0 - monic(Polynomials.polyder(p0))
-        ## resiudal tolerance grows with m, here it depends on
-        ## initial value and previous residual times a growth tolerance, ϕ
-        ρ = max(ρ, ϕ * residual)
-
-        ## update multiplicities
-        for z in roots(v_j)
-            tmp, ind = findmin(abs.(zs .- z))
-            ls[ind] = ls[ind] + 1
-        end
-
-        ## rename
-        p0 = u_j
+    if maximum(ls) > 1
+        zs = pejroot(p, zs, ls, τ=τ)
     end
 
+    return (zs, ls)
 
-    if maximum(ls) == 1
-        return (zs, ls)
-    else
-        zs = pejroot(p, zs, ls)
-        return (zs, ls)
-    end
 end
 
 ## Different interfaces
 
-## can pass in vector too
-multroot(p::Vector{T}; kwargs...) where {T <: Real} = multroot(Poly(p); kwargs...)
-
+## can pass in Poly too
+multroot(p::Poly; kwargs...) = multroot(Polynomials.coeffs(p); kwargs...)
 ## Can pass in function
-function multroot(f::Function; kwargs...)
-    p = as_poly(Float64, f)
-    multroot(p; kwargs...)
-
-end
+multroot(f::Function; kwargs...) = multroot(as_poly(Float64, f); kwargs...)
 
 
 end
